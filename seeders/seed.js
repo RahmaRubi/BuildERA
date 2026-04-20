@@ -9,11 +9,17 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const sequelize = new Sequelize(process.env.DB_URL, {
   dialect: 'postgres',
-  dialectOptions: { ssl: { require: true, rejectUnauthorized: false } },
+  dialectOptions: {
+    ssl: { require: true, rejectUnauthorized: false },
+    keepAlive: true,
+    keepAliveInitialDelayMillis: 10000,
+  },
+  pool: { max: 1, min: 1, acquire: 300000, idle: 600000 },
   logging: false
 });
 
 const DATA_DIR = path.join(__dirname, 'data');
+const PROGRESS_FILE = path.join(__dirname, 'progress.json');
 
 const FILE_TYPE_MAP = {
   'CPUs.csv':                      'CPU',
@@ -55,6 +61,21 @@ const SPEC_FILE_TYPE_MAP = {
   'Core_Monitors.csv':       'Monitor',
 };
 
+// --- Progress checkpoint ---
+
+function loadProgress() {
+  if (fs.existsSync(PROGRESS_FILE)) {
+    return JSON.parse(fs.readFileSync(PROGRESS_FILE, 'utf-8'));
+  }
+  return { components: [], specs: [] };
+}
+
+function saveProgress(progress) {
+  fs.writeFileSync(PROGRESS_FILE, JSON.stringify(progress, null, 2));
+}
+
+// --- Helpers ---
+
 function extractBrand(name) {
   return name.split(' ')[0] || 'Unknown';
 }
@@ -68,6 +89,24 @@ function parsePrice(raw) {
 function readCSV(filePath) {
   const content = fs.readFileSync(filePath, 'utf-8');
   return parse(content, { columns: true, skip_empty_lines: true, trim: true });
+}
+
+function chunk(arr, size) {
+  const chunks = [];
+  for (let i = 0; i < arr.length; i += size) chunks.push(arr.slice(i, i + size));
+  return chunks;
+}
+
+async function withRetry(fn, retries = 5, delayMs = 3000) {
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      if (attempt === retries) throw err;
+      console.log(`\n  Connection lost. Waiting ${delayMs * attempt}ms then retrying (${attempt}/${retries})...`);
+      await new Promise(r => setTimeout(r, delayMs * attempt));
+    }
+  }
 }
 
 function getAllProductCSVs() {
@@ -100,15 +139,26 @@ function getAllSpecCSVs() {
   return results;
 }
 
-async function seedComponents() {
+// --- Seeding ---
+
+async function seedComponents(progress) {
   console.log('\n--- Seeding Components ---');
   const csvFiles = getAllProductCSVs();
   let total = 0;
 
   for (const { filePath, type } of csvFiles) {
+    if (progress.components.includes(type)) {
+      console.log(`  [${type}] already done, skipping.`);
+      continue;
+    }
+
+    // Clean up any partial insert from a previous crashed attempt
+    await sequelize.query(`DELETE FROM "Components" WHERE type = :type`, {
+      replacements: { type }
+    });
+
     const rows = readCSV(filePath);
     const now = new Date();
-
     const records = rows.map(row => ({
       name:      row['Name'],
       type:      type,
@@ -119,16 +169,19 @@ async function seedComponents() {
     }));
 
     if (records.length > 0) {
-      await sequelize.getQueryInterface().bulkInsert('Components', records);
+      await withRetry(() => sequelize.getQueryInterface().bulkInsert('Components', records));
       console.log(`  [${type}] inserted ${records.length} components`);
       total += records.length;
     }
+
+    progress.components.push(type);
+    saveProgress(progress);
   }
 
   console.log(`Total components inserted: ${total}`);
 }
 
-async function seedSpecs() {
+async function seedSpecs(progress) {
   console.log('\n--- Seeding Specs & ComponentSpecs ---');
   const csvFiles = getAllSpecCSVs();
 
@@ -144,6 +197,20 @@ async function seedSpecs() {
   }
 
   for (const { filePath, type } of csvFiles) {
+    if (progress.specs.includes(type)) {
+      console.log(`  [${type}] specs already done, skipping.`);
+      continue;
+    }
+
+    // Clean up any partial specs insert from a previous crashed attempt
+    const componentIds = Object.values(componentMap[type] || {});
+    if (componentIds.length > 0) {
+      await sequelize.query(
+        `DELETE FROM "Specs" WHERE component_id IN (:ids)`,
+        { replacements: { ids: componentIds } }
+      );
+    }
+
     const rows = readCSV(filePath);
     if (rows.length === 0) continue;
 
@@ -154,7 +221,7 @@ async function seedSpecs() {
     const typeMap = componentMap[type] || {};
     const now = new Date();
 
-    // Build all Spec records for the entire file at once
+    // Build all Spec records
     const allSpecRecords = [];
     for (const row of rows) {
       const componentId = typeMap[row['Name']?.trim()];
@@ -166,25 +233,28 @@ async function seedSpecs() {
 
     if (allSpecRecords.length === 0) continue;
 
-    // One INSERT for all Specs, get back IDs with RETURNING
-    const insertedSpecs = await sequelize.query(
-      `INSERT INTO "Specs" (name, component_id, "createdAt", "updatedAt")
-       VALUES ${allSpecRecords.map(() => '(?, ?, ?, ?)').join(', ')}
-       RETURNING id, name, component_id`,
-      {
-        replacements: allSpecRecords.flatMap(r => [r.name, r.component_id, r.createdAt, r.updatedAt]),
-        type: Sequelize.QueryTypes.INSERT
-      }
-    );
-
-    // Build lookup: component_id → { specName → specId }
+    // INSERT Specs in chunks, get IDs back via RETURNING
     const specIdMap = {};
-    for (const s of insertedSpecs[0]) {
-      if (!specIdMap[s.component_id]) specIdMap[s.component_id] = {};
-      specIdMap[s.component_id][s.name] = s.id;
+    const specChunks = chunk(allSpecRecords, 2000);
+    for (let i = 0; i < specChunks.length; i++) {
+      process.stdout.write(`\r  [${type}] Specs: chunk ${i + 1}/${specChunks.length}   `);
+      const result = await withRetry(() => sequelize.query(
+        `INSERT INTO "Specs" (name, component_id, "createdAt", "updatedAt")
+         VALUES ${specChunks[i].map(() => '(?, ?, ?, ?)').join(', ')}
+         RETURNING id, name, component_id`,
+        {
+          replacements: specChunks[i].flatMap(r => [r.name, r.component_id, r.createdAt, r.updatedAt]),
+          type: Sequelize.QueryTypes.INSERT
+        }
+      ));
+      for (const s of result[0]) {
+        if (!specIdMap[s.component_id]) specIdMap[s.component_id] = {};
+        specIdMap[s.component_id][s.name] = s.id;
+      }
     }
+    console.log();
 
-    // Build all ComponentSpec records for the entire file at once
+    // Build all ComponentSpec records
     const allComponentSpecRecords = [];
     for (const row of rows) {
       const componentId = typeMap[row['Name']?.trim()];
@@ -197,12 +267,18 @@ async function seedSpecs() {
       }
     }
 
-    // One INSERT for all ComponentSpecs
-    if (allComponentSpecRecords.length > 0) {
-      await sequelize.getQueryInterface().bulkInsert('ComponentSpecs', allComponentSpecRecords);
+    // INSERT ComponentSpecs in chunks
+    const csChunks = chunk(allComponentSpecRecords, 2000);
+    for (let i = 0; i < csChunks.length; i++) {
+      process.stdout.write(`\r  [${type}] ComponentSpecs: chunk ${i + 1}/${csChunks.length}   `);
+      await withRetry(() => sequelize.getQueryInterface().bulkInsert('ComponentSpecs', csChunks[i]));
     }
+    console.log();
 
-    console.log(`  [${type}] specs: ${allSpecRecords.length}, componentSpecs: ${allComponentSpecRecords.length}`);
+    console.log(`  [${type}] done — specs: ${allSpecRecords.length}, componentSpecs: ${allComponentSpecRecords.length}`);
+
+    progress.specs.push(type);
+    saveProgress(progress);
   }
 }
 
@@ -211,12 +287,24 @@ async function main() {
     await sequelize.authenticate();
     console.log('Connected to database.');
 
-    await seedComponents();
-    await seedSpecs();
+    const progress = loadProgress();
+
+    if (progress.components.length > 0 || progress.specs.length > 0) {
+      console.log(`Resuming from checkpoint — components done: [${progress.components.join(', ')}]`);
+      console.log(`                         — specs done:      [${progress.specs.join(', ')}]`);
+    }
+
+    await seedComponents(progress);
+    await seedSpecs(progress);
 
     console.log('\nSeeding complete!');
+
+    // Clean up checkpoint on success
+    if (fs.existsSync(PROGRESS_FILE)) fs.unlinkSync(PROGRESS_FILE);
+
   } catch (err) {
     console.error('Error during seeding:', err.message);
+    console.log('Progress saved. Re-run seed.js to resume from where it stopped.');
   } finally {
     await sequelize.close();
   }

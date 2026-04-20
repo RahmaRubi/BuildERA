@@ -1,21 +1,11 @@
-import * as userService from './user.service.js'
+import { Router } from "express";
+import * as userServices from "./user.service.js";
+import { isAuthenticate } from "../../middlewares/auth.middleware.js";
+import { asyncHandler } from "../../utils/error/async_handler.js";
 
-export const create = async (req, res) => {
-    const user = await userService.createUser(req.body)
-    res.json(user)
-}
+const router = Router();
 
-export const update = async (req, res) => {
-    await userService.updateUser(req.body, { id: req.params.id })
-    res.json({ message: 'User updated successfully' })
-}
+router.get("/profile", isAuthenticate, asyncHandler(userServices.getProfile));
+router.delete("/freeze-account", isAuthenticate, asyncHandler(userServices.freezeAccount))
 
-export const getAll = async (req, res) => {
-    const users = await userService.getAllUsers()
-    res.json(users)
-}
-
-export const getOne = async (req, res) => {
-    const user = await userService.getUser({ id: req.params.id })
-    res.json(user)
-}
+export default router;

@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install *)",
+      "Bash(curl -s -X POST http://localhost:3000/auth/register -H \"Content-Type: application/json\" -d \"{\\\\\"userName\\\\\":\\\\\"testuser\\\\\",\\\\\"email\\\\\":\\\\\"test@example.com\\\\\",\\\\\"password\\\\\":\\\\\"pass1234\\\\\",\\\\\"cPassword\\\\\":\\\\\"pass1234\\\\\",\\\\\"phone\\\\\":\\\\\"01012345678\\\\\"}\")"
+    ]
+  }
+}

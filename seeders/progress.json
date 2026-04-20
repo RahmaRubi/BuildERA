@@ -1,0 +1,30 @@
+{
+  "components": [
+    "Case Accessory",
+    "Case Fan",
+    "External Storage",
+    "Fan Controller",
+    "Optical Drive",
+    "Thermal Compound",
+    "UPS System",
+    "Case",
+    "CPU Cooler",
+    "CPU",
+    "Memory",
+    "Monitor",
+    "Motherboard",
+    "Operating System",
+    "Power Supply",
+    "Storage",
+    "Video Card",
+    "Sound Card",
+    "Wired Network Adapter",
+    "Wireless Network Adapter",
+    "Headphones",
+    "Keyboard",
+    "Mouse",
+    "Speakers",
+    "Webcam"
+  ],
+  "specs": []
+}

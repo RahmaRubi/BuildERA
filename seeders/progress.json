@@ -26,5 +26,13 @@
     "Speakers",
     "Webcam"
   ],
-  "specs": []
+  "specs": [
+    "Case",
+    "CPU Cooler",
+    "CPU",
+    "Memory",
+    "Monitor",
+    "Motherboard",
+    "Power Supply"
+  ]
 }

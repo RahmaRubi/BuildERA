@@ -1,6 +1,6 @@
 export default (sequelize, DataTypes) => {
     const ComponentSpec = sequelize.define('ComponentSpec', {
-        value: { type: DataTypes.STRING, allowNull: false }
+        value: { type: DataTypes.TEXT, allowNull: false }
     })
 
     ComponentSpec.associate = (db) => {

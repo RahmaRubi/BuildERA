@@ -14,7 +14,7 @@ const sequelize = new Sequelize(process.env.DB_URL, {
     keepAlive: true,
     keepAliveInitialDelayMillis: 10000,
   },
-  pool: { max: 1, min: 1, acquire: 300000, idle: 600000 },
+  pool: { max: 1, min: 0, acquire: 300000, idle: 600000 },
   logging: false
 });
 
@@ -97,14 +97,16 @@ function chunk(arr, size) {
   return chunks;
 }
 
-async function withRetry(fn, retries = 5, delayMs = 3000) {
+async function withRetry(fn, retries = 8, delayMs = 5000) {
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
       return await fn();
     } catch (err) {
       if (attempt === retries) throw err;
-      console.log(`\n  Connection lost. Waiting ${delayMs * attempt}ms then retrying (${attempt}/${retries})...`);
-      await new Promise(r => setTimeout(r, delayMs * attempt));
+      const wait = delayMs * attempt;
+      console.log(`\n  Connection lost. Waiting ${wait}ms then retrying (${attempt}/${retries})...`);
+      await new Promise(r => setTimeout(r, wait));
+      try { await sequelize.authenticate(); } catch (_) {}
     }
   }
 }
@@ -202,9 +204,15 @@ async function seedSpecs(progress) {
       continue;
     }
 
-    // Clean up any partial specs insert from a previous crashed attempt
+    // Clean up any partial specs/componentspecs from a previous crashed attempt
+    // Only do full cleanup if we have no saved chunk progress (i.e. fresh start for this type)
     const componentIds = Object.values(componentMap[type] || {});
-    if (componentIds.length > 0) {
+    const csProgressKey = `specs_cs_chunk_${type}`;
+    if (componentIds.length > 0 && !progress[csProgressKey]) {
+      await sequelize.query(
+        `DELETE FROM "ComponentSpecs" WHERE component_id IN (:ids)`,
+        { replacements: { ids: componentIds } }
+      );
       await sequelize.query(
         `DELETE FROM "Specs" WHERE component_id IN (:ids)`,
         { replacements: { ids: componentIds } }
@@ -235,7 +243,7 @@ async function seedSpecs(progress) {
 
     // INSERT Specs in chunks, get IDs back via RETURNING
     const specIdMap = {};
-    const specChunks = chunk(allSpecRecords, 2000);
+    const specChunks = chunk(allSpecRecords, 300);
     for (let i = 0; i < specChunks.length; i++) {
       process.stdout.write(`\r  [${type}] Specs: chunk ${i + 1}/${specChunks.length}   `);
       const result = await withRetry(() => sequelize.query(
@@ -267,13 +275,23 @@ async function seedSpecs(progress) {
       }
     }
 
-    // INSERT ComponentSpecs in chunks
-    const csChunks = chunk(allComponentSpecRecords, 2000);
-    for (let i = 0; i < csChunks.length; i++) {
+    // INSERT ComponentSpecs in chunks, resuming from last saved chunk
+    const csChunks = chunk(allComponentSpecRecords, 300);
+    const startChunk = progress[csProgressKey] || 0;
+
+    if (startChunk > 0) {
+      console.log(`  [${type}] Resuming ComponentSpecs from chunk ${startChunk + 1}/${csChunks.length}`);
+    }
+
+    for (let i = startChunk; i < csChunks.length; i++) {
       process.stdout.write(`\r  [${type}] ComponentSpecs: chunk ${i + 1}/${csChunks.length}   `);
       await withRetry(() => sequelize.getQueryInterface().bulkInsert('ComponentSpecs', csChunks[i]));
+      progress[csProgressKey] = i + 1;
+      saveProgress(progress);
     }
     console.log();
+
+    delete progress[csProgressKey];
 
     console.log(`  [${type}] done — specs: ${allSpecRecords.length}, componentSpecs: ${allComponentSpecRecords.length}`);
 

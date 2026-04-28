@@ -19,7 +19,7 @@ module.exports = {
         allowNull: false
       },
       purpose: {
-        type: Sequelize.STRING,
+        type: Sequelize.TEXT,
         allowNull: false
       },
       createdAt: {

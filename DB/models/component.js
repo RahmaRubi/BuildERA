@@ -1,8 +1,8 @@
 export default (sequelize, DataTypes) => {
     const Component = sequelize.define('Component', {
-        name: { type: DataTypes.STRING, allowNull: false },
-        type: { type: DataTypes.STRING, allowNull: false },
-        brand: { type: DataTypes.STRING, allowNull: false },
+        name: { type: DataTypes.TEXT, allowNull: false },
+        type: { type: DataTypes.TEXT, allowNull: false },
+        brand: { type: DataTypes.TEXT, allowNull: false },
         price: { type: DataTypes.FLOAT, allowNull: false }
     })
 

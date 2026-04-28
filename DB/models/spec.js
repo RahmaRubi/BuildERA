@@ -1,6 +1,6 @@
 export default (sequelize, DataTypes) => {
     const Spec = sequelize.define('Spec', {
-        name: { type: DataTypes.STRING, allowNull: false }
+        name: { type: DataTypes.TEXT, allowNull: false }
     })
 
     Spec.associate = (db) => {

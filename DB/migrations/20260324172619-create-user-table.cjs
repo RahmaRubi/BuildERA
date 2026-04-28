@@ -9,24 +9,24 @@ module.exports = {
         autoIncrement: true
       },
       userName: {
-        type: Sequelize.STRING,
+        type: Sequelize.TEXT,
         allowNull: false
       },
       email: {
-        type: Sequelize.STRING,
+        type: Sequelize.TEXT,
         allowNull: false,
         unique: true
       },
       password: {
-        type: Sequelize.STRING,
+        type: Sequelize.TEXT,
         allowNull: false
       },
       phone: {
-        type: Sequelize.STRING,
+        type: Sequelize.TEXT,
         allowNull: true
       },
       role: {
-        type: Sequelize.STRING,
+        type: Sequelize.TEXT,
         defaultValue: 'user'
       },
       isConfirmed: {

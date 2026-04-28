@@ -1,3 +1,4 @@
+
 export default (sequelize, DataTypes) => {
     const ComponentSpec = sequelize.define('ComponentSpec', {
         value: { type: DataTypes.TEXT, allowNull: false }

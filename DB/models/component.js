@@ -3,7 +3,8 @@ export default (sequelize, DataTypes) => {
         name: { type: DataTypes.TEXT, allowNull: false },
         type: { type: DataTypes.TEXT, allowNull: false },
         brand: { type: DataTypes.TEXT, allowNull: false },
-        price: { type: DataTypes.FLOAT, allowNull: false }
+        price: { type: DataTypes.FLOAT, allowNull: false },
+        imageUrl: { type: DataTypes.TEXT, allowNull: true }
     })
 
     Component.associate = (db) => {

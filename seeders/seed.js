@@ -61,6 +61,18 @@ const SPEC_FILE_TYPE_MAP = {
   'Core_Monitors.csv':       'Monitor',
 };
 
+const IMAGE_FILE_TYPE_MAP = {
+  'Core_CPUs.json':           'CPU',
+  'Core_CPU Coolers.json':    'CPU Cooler',
+  'Core_Motherboards.json':   'Motherboard',
+  'Core_Memory.json':         'Memory',
+  'Core_Storage.json':        'Storage',
+  'Core_Video Cards.json':    'Video Card',
+  'Core_Cases.json':          'Case',
+  'Core_Power Supplies.json': 'Power Supply',
+  'Core_Monitors.json':       'Monitor',
+};
+
 // --- Progress checkpoint ---
 
 function loadProgress() {
@@ -300,6 +312,47 @@ async function seedSpecs(progress) {
   }
 }
 
+async function seedImages(progress) {
+  console.log('\n--- Seeding Images ---');
+  const imagesDir = path.join(DATA_DIR, 'Core Details', 'images');
+
+  for (const [fileName, type] of Object.entries(IMAGE_FILE_TYPE_MAP)) {
+    if (progress.images && progress.images.includes(type)) {
+      console.log(`  [${type}] images already done, skipping.`);
+      continue;
+    }
+
+    const filePath = path.join(imagesDir, fileName);
+    if (!fs.existsSync(filePath)) {
+      console.log(`  [${type}] image file not found, skipping.`);
+      continue;
+    }
+
+    const imageMap = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+    const entries = Object.entries(imageMap);
+    let updated = 0;
+
+    const batches = chunk(entries, 200);
+    for (let i = 0; i < batches.length; i++) {
+      process.stdout.write(`\r  [${type}] batch ${i + 1}/${batches.length}   `);
+      for (const [name, images] of batches[i]) {
+        if (!images || images.length === 0) continue;
+        const src = images[0].src.startsWith('//') ? 'https:' + images[0].src : images[0].src;
+        await withRetry(() => sequelize.query(
+          `UPDATE "Components" SET "imageUrl" = :url WHERE name = :name AND type = :type`,
+          { replacements: { url: src, name: name.trim(), type } }
+        ));
+        updated++;
+      }
+    }
+    console.log(`\n  [${type}] updated ${updated} image URLs`);
+
+    if (!progress.images) progress.images = [];
+    progress.images.push(type);
+    saveProgress(progress);
+  }
+}
+
 async function main() {
   try {
     await sequelize.authenticate();
@@ -314,6 +367,7 @@ async function main() {
 
     await seedComponents(progress);
     await seedSpecs(progress);
+    await seedImages(progress);
 
     console.log('\nSeeding complete!');
 

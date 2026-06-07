@@ -2,7 +2,17 @@
   "permissions": {
     "allow": [
       "Bash(npm install *)",
-      "Bash(curl -s -X POST http://localhost:3000/auth/register -H \"Content-Type: application/json\" -d \"{\\\\\"userName\\\\\":\\\\\"testuser\\\\\",\\\\\"email\\\\\":\\\\\"test@example.com\\\\\",\\\\\"password\\\\\":\\\\\"pass1234\\\\\",\\\\\"cPassword\\\\\":\\\\\"pass1234\\\\\",\\\\\"phone\\\\\":\\\\\"01012345678\\\\\"}\")"
+      "Bash(curl -s -X POST http://localhost:3000/auth/register -H \"Content-Type: application/json\" -d \"{\\\\\"userName\\\\\":\\\\\"testuser\\\\\",\\\\\"email\\\\\":\\\\\"test@example.com\\\\\",\\\\\"password\\\\\":\\\\\"pass1234\\\\\",\\\\\"cPassword\\\\\":\\\\\"pass1234\\\\\",\\\\\"phone\\\\\":\\\\\"01012345678\\\\\"}\")",
+      "Bash(Get-ChildItem -Path \"C:\\\\4th Year\\\\Graduation Project\\\\BuildERA\" -Recurse -Directory)",
+      "Bash(Select-Object -ExpandProperty FullName)",
+      "PowerShell(Get-ChildItem -Path \"C:\\\\4th Year\\\\Graduation Project\\\\BuildERA\\\\src\" -Recurse | Where-Object { $_.Extension -eq '.js' } | Select-Object -ExpandProperty FullName | Sort-Object)",
+      "Bash(node -e \"require\\('./node_modules/cors/package.json'\\)\")",
+      "Bash(npm run *)",
+      "Bash(node --input-type=module)",
+      "Bash(git mv *)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)"
     ]
   }
 }

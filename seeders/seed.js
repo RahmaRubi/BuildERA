@@ -8,12 +8,7 @@ import { Sequelize } from 'sequelize';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const sequelize = new Sequelize(process.env.DB_URL, {
-  dialect: 'postgres',
-  dialectOptions: {
-    ssl: { require: true, rejectUnauthorized: false },
-    keepAlive: true,
-    keepAliveInitialDelayMillis: 10000,
-  },
+  dialect: process.env.DB_DIALECT || 'mysql',
   pool: { max: 1, min: 0, acquire: 300000, idle: 600000 },
   logging: false
 });
@@ -167,7 +162,7 @@ async function seedComponents(progress) {
     }
 
     // Clean up any partial insert from a previous crashed attempt
-    await sequelize.query(`DELETE FROM "Components" WHERE type = :type`, {
+    await sequelize.query('DELETE FROM `Components` WHERE type = :type', {
       replacements: { type }
     });
 
@@ -200,7 +195,7 @@ async function seedSpecs(progress) {
   const csvFiles = getAllSpecCSVs();
 
   const allComponents = await sequelize.query(
-    `SELECT id, name, type FROM "Components"`,
+    'SELECT id, name, type FROM `Components`',
     { type: Sequelize.QueryTypes.SELECT }
   );
 
@@ -222,11 +217,11 @@ async function seedSpecs(progress) {
     const csProgressKey = `specs_cs_chunk_${type}`;
     if (componentIds.length > 0 && !progress[csProgressKey]) {
       await sequelize.query(
-        `DELETE FROM "ComponentSpecs" WHERE component_id IN (:ids)`,
+        'DELETE FROM `ComponentSpecs` WHERE component_id IN (:ids)',
         { replacements: { ids: componentIds } }
       );
       await sequelize.query(
-        `DELETE FROM "Specs" WHERE component_id IN (:ids)`,
+        'DELETE FROM `Specs` WHERE component_id IN (:ids)',
         { replacements: { ids: componentIds } }
       );
     }
@@ -253,24 +248,21 @@ async function seedSpecs(progress) {
 
     if (allSpecRecords.length === 0) continue;
 
-    // INSERT Specs in chunks, get IDs back via RETURNING
+    // INSERT Specs in chunks, then SELECT back to get IDs (MySQL has no RETURNING)
     const specIdMap = {};
     const specChunks = chunk(allSpecRecords, 300);
     for (let i = 0; i < specChunks.length; i++) {
       process.stdout.write(`\r  [${type}] Specs: chunk ${i + 1}/${specChunks.length}   `);
-      const result = await withRetry(() => sequelize.query(
-        `INSERT INTO "Specs" (name, component_id, "createdAt", "updatedAt")
-         VALUES ${specChunks[i].map(() => '(?, ?, ?, ?)').join(', ')}
-         RETURNING id, name, component_id`,
-        {
-          replacements: specChunks[i].flatMap(r => [r.name, r.component_id, r.createdAt, r.updatedAt]),
-          type: Sequelize.QueryTypes.INSERT
-        }
-      ));
-      for (const s of result[0]) {
-        if (!specIdMap[s.component_id]) specIdMap[s.component_id] = {};
-        specIdMap[s.component_id][s.name] = s.id;
-      }
+      await withRetry(() => sequelize.getQueryInterface().bulkInsert('Specs', specChunks[i]));
+    }
+    // Fetch all inserted spec IDs for this type's components
+    const insertedSpecs = await sequelize.query(
+      'SELECT id, name, component_id FROM `Specs` WHERE component_id IN (:ids)',
+      { replacements: { ids: componentIds }, type: Sequelize.QueryTypes.SELECT }
+    );
+    for (const s of insertedSpecs) {
+      if (!specIdMap[s.component_id]) specIdMap[s.component_id] = {};
+      specIdMap[s.component_id][s.name] = s.id;
     }
     console.log();
 
@@ -339,7 +331,7 @@ async function seedImages(progress) {
         if (!images || images.length === 0) continue;
         const src = images[0].src.startsWith('//') ? 'https:' + images[0].src : images[0].src;
         await withRetry(() => sequelize.query(
-          `UPDATE "Components" SET "imageUrl" = :url WHERE name = :name AND type = :type`,
+          'UPDATE `Components` SET `imageUrl` = :url WHERE name = :name AND type = :type',
           { replacements: { url: src, name: name.trim(), type } }
         ));
         updated++;

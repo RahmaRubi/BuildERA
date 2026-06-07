@@ -13,6 +13,9 @@ export const bootstrap = async (app, express) => {
     app.use(cors({ origin: process.env.FRONTEND_URL || '*' }));
     app.use(express.json())
 
+    // Health check — used by uptime monitors to keep the server warm
+    app.get('/health', (req, res) => res.status(200).json({ status: 'ok' }))
+
     // Routes
     app.use('/auth', authRouter)
     app.use('/user', userRouter)

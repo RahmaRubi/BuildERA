@@ -5,8 +5,7 @@ const sslConfig = {
   dialect: "mysql",
   dialectOptions: {
     ssl: {
-      rejectUnauthorized: true,
-      minVersion: "TLSv1.2"
+      rejectUnauthorized: false
     }
   }
 };

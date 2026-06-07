@@ -6,8 +6,13 @@ const ready = bootstrap(app, express)
 
 // Vercel export — awaits bootstrap before handling each request
 const handler = async (req, res) => {
-    await ready
-    return app(req, res)
+    try {
+        await ready
+        return app(req, res)
+    } catch (err) {
+        console.error('Bootstrap error:', err)
+        return res.status(500).json({ error: err.message, stack: err.stack })
+    }
 }
 
 // Local development only

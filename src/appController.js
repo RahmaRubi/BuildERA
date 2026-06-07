@@ -17,6 +17,7 @@ export const bootstrap = async (app, express) => {
     app.get('/health', (req, res) => res.status(200).json({ status: 'ok' }))
 
     // Routes
+    app.get('/', (req, res, next) => {res.json({msg: "Welcome"})})
     app.use('/auth', authRouter)
     app.use('/user', userRouter)
     app.use('/components', componentRouter)

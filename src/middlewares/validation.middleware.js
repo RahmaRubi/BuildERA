@@ -7,7 +7,7 @@ export const isValid = (schema) => {
 
         if(result.error){
             const messages = result.error.details.map((obj) => obj.message)
-            return next(new Error(messages), {cause: 400})
+            return next(new Error(messages, {cause: 400}))
         }
         return next()
     }

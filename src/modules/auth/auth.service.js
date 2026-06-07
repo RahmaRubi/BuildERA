@@ -77,3 +77,57 @@ export const activateAccount = async (req, res, next) => {
     });
 
 };
+
+export const forgotPassword = async (req, res, next) => {
+
+    const { email } = req.body;
+    const user = await User.findOne({ where: { email } });
+    if (!user) {
+      return next(new Error(messages.user.notFound, { cause: 404 }));
+    }
+
+    const token = createToken({ payload: { id: user.id }, options: { expiresIn: "15m" } });
+    const link = `http://localhost:3000/auth/reset-password/${token}`;
+    const emailSent = await sendEmail({
+      to: email,
+      subject: "Password Reset Request - BuildERA",
+      html: `<b>Click <a href="${link}">here</a> to reset your password. This link expires in 15 minutes.</b>`,
+    });
+
+    if (!emailSent) {
+      return next(new Error(messages.user.emailNotSent, { cause: 500 }));
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Password reset email sent successfully",
+    });
+
+};
+
+export const resetPassword = async (req, res, next) => {
+
+    const { token } = req.params;
+    const { password } = req.body;
+
+    const decoded = verifyToken({ token });
+    if (decoded.error) {
+      return next(new Error("Invalid or expired reset token", { cause: 400 }));
+    }
+
+    const user = await User.findOne({ where: { id: decoded.id } });
+    if (!user) {
+      return next(new Error(messages.user.notFound, { cause: 404 }));
+    }
+
+    await User.update(
+      { password: hash({ data: password, saltRound: 8 }) },
+      { where: { id: user.id } }
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: "Password reset successfully",
+    });
+
+};

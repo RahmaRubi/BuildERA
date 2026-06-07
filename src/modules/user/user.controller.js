@@ -4,8 +4,9 @@ import { isAuthenticate } from "../../middlewares/auth.middleware.js";
 import { asyncHandler } from "../../utils/error/async_handler.js";
 
 const router = Router();
+router.use(isAuthenticate)
 
-router.get("/profile", isAuthenticate, asyncHandler(userServices.getProfile));
-router.delete("/freeze-account", isAuthenticate, asyncHandler(userServices.freezeAccount))
+router.get("/profile", asyncHandler(userServices.getProfile));
+router.delete("/freeze-account", asyncHandler(userServices.freezeAccount))
 
 export default router;

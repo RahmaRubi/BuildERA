@@ -11,7 +11,7 @@ export const isAuthenticate = async (req, res, next) => {
     return next(new Error("token is required", { cause: 400 }));
 
   if (!authorization.startsWith("access"))
-    return next(new Error("invalild token", { cause: 400 }));
+    return next(new Error("invalid token", { cause: 400 }));
 
   const token = authorization.split(" ")[1];
 

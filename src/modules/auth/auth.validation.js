@@ -12,3 +12,12 @@ export const login = joi.object({
     email: joi.string().email().required(),
     password: joi.string().required(),
 }).required()
+
+export const forgotPassword = joi.object({
+    email: joi.string().email().required(),
+}).required()
+
+export const resetPassword = joi.object({
+    password: joi.string().min(6).required(),
+    cPassword: joi.string().valid(joi.ref("password")).required(),
+}).required()

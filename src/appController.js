@@ -28,8 +28,8 @@ export const bootstrap = async (app, express) => {
     // Global error handler
     app.use(globalError)
 
-    // DB Connection — sync creates tables if they don't exist
-    await db.sequelize.sync({ alter: true })
-        .then(() => console.log('DB connected and synced successfully'))
+    // DB Connection
+    await db.sequelize.authenticate()
+        .then(() => console.log('DB connected successfully'))
         .catch(err => console.log('DB connection error:', err))
 }

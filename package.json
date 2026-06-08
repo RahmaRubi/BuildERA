@@ -14,8 +14,9 @@
   "author": "",
   "license": "ISC",
   "description": "",
+
   "engines": {
-    "node": "20.x"
+    "node": "22.13.1"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",
@@ -35,4 +36,5 @@
   "devDependencies": {
     "sequelize-cli": "^6.6.5"
   }
+
 }

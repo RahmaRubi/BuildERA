@@ -15,7 +15,7 @@ export const register = async (req, res, next) => {
     });
 
     const token = createToken({payload: {id: createdUser.id}, options: {expiresIn: "15m"}})
-    const link = `https://build-era-sigma.vercel.app/auth/activate-account/${token}`;
+    const link = `${process.env.BACKEND_URL}auth/activate-account/${token}`;
     const emailSent = await sendEmail({
       to: email,
       subject: "Email Verification from buildERA app",
@@ -87,7 +87,7 @@ export const forgotPassword = async (req, res, next) => {
     }
 
     const token = createToken({ payload: { id: user.id }, options: { expiresIn: "15m" } });
-    const link = `https://build-era-sigma.vercel.app/auth/reset-password/${token}`;
+    const link = `${process.env.BACKEND_URL}auth/reset-password/${token}`;
     const emailSent = await sendEmail({
       to: email,
       subject: "Password Reset Request - BuildERA",

@@ -1,5 +1,6 @@
 import db from '../../../DB/models/index.js';
 import { checkComponentList } from './build.compatibility.js';
+import { randomUUID } from 'crypto';
 
 export const createBuild = async (req, res) => {
   const { name, budget, purpose } = req.body;
@@ -92,6 +93,31 @@ export const addComponent = async (req, res, next) => {
   await db.BuildComponent.create({ build_id: build.id, component_id: componentId });
 
   return res.status(201).json({ success: true, message: `${component.name} added to build`, compatibility });
+};
+
+export const shareBuild = async (req, res, next) => {
+  const build = await db.Build.findOne({ where: { id: req.params.id, user_id: req.user.id } });
+  if (!build) return next(new Error('Build not found', { cause: 404 }));
+
+  const shareToken = randomUUID();
+  await build.update({ shareToken });
+
+  const shareUrl = `${process.env.BACKEND_URL}/builds/shared/${shareToken}`;
+  return res.status(200).json({ success: true, data: { shareToken, shareUrl } });
+};
+
+export const getSharedBuild = async (req, res, next) => {
+  const build = await db.Build.findOne({
+    where: { shareToken: req.params.token },
+    include: [{ model: db.BuildComponent, include: [{ model: db.Component }] }],
+  });
+  if (!build) return next(new Error('Shared build not found', { cause: 404 }));
+
+  const { BuildComponents, ...buildData } = build.get({ plain: true });
+  const components = BuildComponents.map(bc => ({ ...bc.Component, buildComponentId: bc.id }));
+  const totalPrice = components.reduce((sum, c) => sum + (c.price || 0), 0);
+
+  return res.status(200).json({ success: true, data: { ...buildData, components, totalPrice } });
 };
 
 export const removeComponent = async (req, res, next) => {

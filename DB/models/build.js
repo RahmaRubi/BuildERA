@@ -11,6 +11,11 @@ export default (sequelize, DataTypes) => {
         purpose: {
             type: DataTypes.TEXT,
             allowNull: false
+        },
+        shareToken: {
+            type: DataTypes.STRING,
+            allowNull: true,
+            unique: true
         }
     })
 

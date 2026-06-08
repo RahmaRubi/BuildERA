@@ -10,7 +10,7 @@ import { notFound } from './utils/error/not_found.js';
 export const bootstrap = async (app, express) => {
 
     // Middleware
-    app.use(cors({ origin: process.env.FRONTEND_URL || '*' }));
+    app.use(cors());
     app.use(express.json())
 
     // Health check — used by uptime monitors to keep the server warm

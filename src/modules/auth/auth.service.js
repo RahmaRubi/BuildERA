@@ -74,7 +74,7 @@ export const activateAccount = async (req, res, next) => {
     }
     return res.status(200).json({
       success: true,
-      message: "email verified Contratulations!",
+      message: "account activated, please login",
     });
 
 };

@@ -21,6 +21,7 @@ router.put('/:id',  isValid(v.updateBuild), asyncHandler(buildService.updateBuil
 router.delete('/:id',                       asyncHandler(buildService.deleteBuild));
 
 router.post('/:id/share',                              asyncHandler(buildService.shareBuild));
+router.delete('/:id/share',                            asyncHandler(buildService.unshareBuild));
 router.post('/:id/components', isValid(v.addComponent), asyncHandler(buildService.addComponent));
 router.delete('/:id/components/:componentId',           asyncHandler(buildService.removeComponent));
 

@@ -99,11 +99,22 @@ export const shareBuild = async (req, res, next) => {
   const build = await db.Build.findOne({ where: { id: req.params.id, user_id: req.user.id } });
   if (!build) return next(new Error('Build not found', { cause: 404 }));
 
-  const shareToken = randomUUID();
-  await build.update({ shareToken });
+  // Reuse existing token so old links stay valid
+  const shareToken = build.shareToken || randomUUID();
+  if (!build.shareToken) await build.update({ shareToken });
 
-  const shareUrl = `${process.env.BACKEND_URL}/builds/shared/${shareToken}`;
+  const FRONTEND = (process.env.FRONTEND_URL || 'http://localhost:5173').replace(/\/$/, '');
+  const shareUrl = `${FRONTEND}/builds/shared/${shareToken}`;
   return res.status(200).json({ success: true, data: { shareToken, shareUrl } });
+};
+
+export const unshareBuild = async (req, res, next) => {
+  const build = await db.Build.findOne({ where: { id: req.params.id, user_id: req.user.id } });
+  if (!build) return next(new Error('Build not found', { cause: 404 }));
+  if (!build.shareToken) return next(new Error('Build is not shared', { cause: 400 }));
+
+  await build.update({ shareToken: null });
+  return res.status(200).json({ success: true, message: 'Build is now private' });
 };
 
 export const getSharedBuild = async (req, res, next) => {

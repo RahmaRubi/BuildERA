@@ -35,6 +35,13 @@ export const bootstrap = async (app, express) => {
         .catch(err => console.log('DB connection error:', err))
 
     // Schema migrations
-    await db.sequelize.query('ALTER TABLE Builds ADD COLUMN IF NOT EXISTS name VARCHAR(255) NULL').catch(() => {})
-    await db.sequelize.query('ALTER TABLE Builds ADD COLUMN IF NOT EXISTS shareToken VARCHAR(255) NULL UNIQUE').catch(() => {})
+    const migrations = [
+        'ALTER TABLE Builds ADD COLUMN IF NOT EXISTS name VARCHAR(255) NULL',
+        'ALTER TABLE Builds ADD COLUMN IF NOT EXISTS shareToken VARCHAR(255) NULL',
+    ];
+    for (const sql of migrations) {
+        await db.sequelize.query(sql)
+            .then(() => console.log(`Migration OK: ${sql.slice(0, 60)}`))
+            .catch(err => console.log(`Migration skipped (${err.message.slice(0, 60)})`));
+    }
 }

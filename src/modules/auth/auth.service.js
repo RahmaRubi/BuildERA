@@ -3,7 +3,8 @@ import {sendEmail, createToken, verifyToken, hash, compare, encrypt} from '../..
 import { messages } from "../../utils/message/index.js";
 
 const User = db.User;
-const BASE_URL = (process.env.BACKEND_URL || 'http://localhost:3000').replace(/\/$/, '');
+const BASE_URL     = (process.env.BACKEND_URL  || 'http://localhost:3000').replace(/\/$/, '');
+const FRONTEND_URL = (process.env.FRONTEND_URL || 'http://localhost:5173').replace(/\/$/, '');
 
 export const register = async (req, res, next) => {
 
@@ -88,7 +89,7 @@ export const forgotPassword = async (req, res, next) => {
     }
 
     const token = createToken({ payload: { id: user.id }, options: { expiresIn: "15m" } });
-    const link = `${BASE_URL}/auth/reset-password/${token}`;
+    const link = `${FRONTEND_URL}/reset-password?token=${token}`;
     const emailSent = await sendEmail({
       to: email,
       subject: "Password Reset Request - BuildERA",

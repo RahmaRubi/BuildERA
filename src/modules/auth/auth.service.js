@@ -80,6 +80,27 @@ export const activateAccount = async (req, res, next) => {
 
 };
 
+export const resendVerification = async (req, res, next) => {
+
+    const { email } = req.body;
+    const user = await User.findOne({ where: { email, isDeleted: false } });
+    if (!user) return next(new Error(messages.user.notFound, { cause: 404 }));
+    if (user.isConfirmed) return next(new Error('Account is already verified', { cause: 400 }));
+
+    const token = createToken({ payload: { id: user.id }, options: { expiresIn: '15m' } });
+    const link  = `${BASE_URL}/auth/activate-account/${token}`;
+    const emailSent = await sendEmail({
+        to: email,
+        subject: 'Email Verification from buildERA app',
+        html: `<b>Click <a href="${link}">here</a> to verify your account. Link expires in 15 minutes.</b>`,
+    });
+
+    if (!emailSent) return next(new Error(messages.user.emailNotSent, { cause: 500 }));
+
+    return res.status(200).json({ success: true, message: 'Verification email resent successfully' });
+
+};
+
 export const forgotPassword = async (req, res, next) => {
 
     const { email } = req.body;

@@ -33,4 +33,9 @@ export const bootstrap = async (app, express) => {
     await db.sequelize.authenticate()
         .then(() => console.log('DB connected successfully'))
         .catch(err => console.log('DB connection error:', err))
+
+    // Add name column to Builds if not yet migrated
+    await db.sequelize.query(
+        'ALTER TABLE Builds ADD COLUMN IF NOT EXISTS name VARCHAR(255) NULL'
+    ).catch(() => {})
 }

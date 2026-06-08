@@ -1,12 +1,14 @@
 import joi from 'joi';
 
 export const createBuild = joi.object({
-  budget: joi.number().positive().required(),
+  name:    joi.string().min(1).max(100),
+  budget:  joi.number().positive().required(),
   purpose: joi.string().min(3).max(200).required(),
 }).required();
 
 export const updateBuild = joi.object({
-  budget: joi.number().positive(),
+  name:    joi.string().min(1).max(100),
+  budget:  joi.number().positive(),
   purpose: joi.string().min(3).max(200),
 }).min(1).required();
 

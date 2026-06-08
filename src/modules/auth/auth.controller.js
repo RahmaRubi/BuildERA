@@ -5,10 +5,11 @@ import { asyncHandler } from "../../utils/error/async_handler.js";
 import { isValid } from "../../middlewares/validation.middleware.js";
 const router = Router();
 
-router.post("/register", isValid(validationServices.register), asyncHandler(authServices.register));
-router.post("/login", isValid(validationServices.login), asyncHandler(authServices.login));
-router.get("/activate-account/:token", asyncHandler(authServices.activateAccount));
-router.post("/forgot-password", isValid(validationServices.forgotPassword), asyncHandler(authServices.forgotPassword));
-router.post("/reset-password/:token", isValid(validationServices.resetPassword), asyncHandler(authServices.resetPassword));
+router.post("/register",              isValid(validationServices.register),             asyncHandler(authServices.register));
+router.post("/login",                 isValid(validationServices.login),                asyncHandler(authServices.login));
+router.get( "/activate-account/:token",                                                 asyncHandler(authServices.activateAccount));
+router.post("/resend-verification",   isValid(validationServices.resendVerification),   asyncHandler(authServices.resendVerification));
+router.post("/forgot-password",       isValid(validationServices.forgotPassword),       asyncHandler(authServices.forgotPassword));
+router.post("/reset-password/:token", isValid(validationServices.resetPassword),        asyncHandler(authServices.resetPassword));
 
 export default router;

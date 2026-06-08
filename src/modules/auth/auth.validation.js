@@ -13,6 +13,10 @@ export const login = joi.object({
     password: joi.string().required(),
 }).required()
 
+export const resendVerification = joi.object({
+    email: joi.string().email().required(),
+}).required()
+
 export const forgotPassword = joi.object({
     email: joi.string().email().required(),
 }).required()

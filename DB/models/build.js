@@ -1,5 +1,9 @@
 export default (sequelize, DataTypes) => {
     const Build = sequelize.define('Build', {
+        name: {
+            type: DataTypes.STRING,
+            allowNull: true
+        },
         budget: {
             type: DataTypes.FLOAT,
             allowNull: false

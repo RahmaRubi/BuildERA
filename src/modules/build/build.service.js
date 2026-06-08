@@ -2,8 +2,8 @@ import db from '../../../DB/models/index.js';
 import { checkComponentList } from './build.compatibility.js';
 
 export const createBuild = async (req, res) => {
-  const { budget, purpose } = req.body;
-  const build = await db.Build.create({ budget, purpose, user_id: req.user.id });
+  const { name, budget, purpose } = req.body;
+  const build = await db.Build.create({ name, budget, purpose, user_id: req.user.id });
   return res.status(201).json({ success: true, data: build });
 };
 

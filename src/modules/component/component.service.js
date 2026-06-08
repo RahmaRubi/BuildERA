@@ -34,6 +34,16 @@ export const listComponents = async (req, res) => {
   });
 };
 
+export const getTypes = async (req, res) => {
+  const results = await db.Component.findAll({
+    attributes: ['type'],
+    group: ['type'],
+    order: [['type', 'ASC']],
+  });
+  const types = results.map(r => r.type);
+  return res.status(200).json({ success: true, data: { types } });
+};
+
 export const getComponent = async (req, res, next) => {
   const { id } = req.params;
 

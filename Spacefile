@@ -1,0 +1,20 @@
+v: 0
+micros:
+  - name: buildera-api
+    src: .
+    engine: nodejs20
+    run: "npm start"
+    primary: true
+    public_routes:
+      - "/*"
+    env:
+      - name: DB_URL
+        description: MySQL connection string (TiDB Cloud)
+      - name: JWT_SECRET
+        description: JWT signing secret
+      - name: EMAIL_USER
+        description: Email address for sending emails
+      - name: EMAIL_PASS
+        description: Email password or app password
+      - name: FRONTEND_URL
+        description: Frontend URL for CORS

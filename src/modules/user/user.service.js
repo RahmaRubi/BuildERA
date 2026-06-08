@@ -1,5 +1,5 @@
 import db from '../../../DB/models/index.js';
-import { decrypt, encrypt } from '../../utils/index.js';
+import { decrypt, encrypt, hash, compare } from '../../utils/index.js';
 
 const User = db.User;
 
@@ -10,10 +10,17 @@ export const getProfile = async (req, res, next) => {
 };
 
 export const updateProfile = async (req, res, next) => {
-    const { userName, phone } = req.body;
+    const { userName, phone, currentPassword, password } = req.body;
     const updates = {};
+
     if (userName) updates.userName = userName;
     if (phone)    updates.phone    = encrypt({ data: phone });
+
+    if (currentPassword && password) {
+        const isMatch = compare({ data: currentPassword, encryptedData: req.user.password });
+        if (!isMatch) return next(new Error('Current password is incorrect', { cause: 400 }));
+        updates.password = hash({ data: password, saltRound: 8 });
+    }
 
     await User.update(updates, { where: { id: req.user.id } });
 

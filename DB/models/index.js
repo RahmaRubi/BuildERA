@@ -1,4 +1,5 @@
 import Sequelize from 'sequelize';
+import mysql2 from 'mysql2';
 
 import defineUser           from './user.js';
 import defineBuild          from './build.js';
@@ -11,6 +12,7 @@ const db = {};
 
 const sequelize = new Sequelize(process.env.DB_URL, {
   dialect: 'mysql',
+  dialectModule: mysql2,
   dialectOptions: {
     ssl: { rejectUnauthorized: false }
   },

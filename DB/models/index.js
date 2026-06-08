@@ -1,5 +1,5 @@
 import Sequelize from 'sequelize';
-import mysql2 from 'mysql2';
+import { createRequire } from 'module';
 
 import defineUser           from './user.js';
 import defineBuild          from './build.js';
@@ -7,6 +7,9 @@ import defineBuildComponent from './buildComponent.js';
 import defineComponent      from './component.js';
 import defineComponentSpec  from './componentSpec.js';
 import defineSpec           from './spec.js';
+
+const _require = createRequire(import.meta.url);
+const mysql2   = _require('mysql2');
 
 const db = {};
 

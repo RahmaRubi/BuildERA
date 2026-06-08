@@ -1,3 +1,5 @@
+import 'mysql2'
+
 let app = null
 
 export default async function handler(req, res) {

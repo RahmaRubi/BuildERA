@@ -5,7 +5,6 @@ export const register = joi.object({
     email: joi.string().email().required(),
     password: joi.string().required(),
     cPassword: joi.string().valid(joi.ref("password")).required(),
-    phone: joi.string().optional(),
 }).required()
 
 export const login = joi.object({

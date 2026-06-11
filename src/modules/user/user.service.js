@@ -1,26 +1,21 @@
 import db from '../../../DB/models/index.js';
-import { decrypt, encrypt, hash, compare } from '../../utils/index.js';
-
 const User = db.User;
 
 export const getProfile = async (req, res, next) => {
     const authUser = req.user.toJSON();
-    if (authUser.phone) authUser.phone = decrypt({ data: authUser.phone });
     return res.status(200).json({ success: true, data: authUser });
 };
 
 export const updateProfile = async (req, res, next) => {
-    const { userName, phone } = req.body;
+    const { userName } = req.body;
     const updates = {};
 
     if (userName) updates.userName = userName;
-    if (phone)    updates.phone    = encrypt({ data: phone });
 
     await User.update(updates, { where: { id: req.user.id } });
 
     const updated = await User.findByPk(req.user.id);
     const userJSON = updated.toJSON();
-    if (userJSON.phone) userJSON.phone = decrypt({ data: userJSON.phone });
     return res.status(200).json({ success: true, data: userJSON });
 };
 

@@ -8,12 +8,11 @@ const FRONTEND_URL = (process.env.FRONTEND_URL || 'http://localhost:5173').repla
 
 export const register = async (req, res, next) => {
 
-    const { userName, email, password, phone } = req.body;
+    const { userName, email, password } = req.body;
     const createdUser = await User.create({
       userName,
       email,
       password: hash({data:password, saltRound:8}),
-      phone: phone ? encrypt({data: phone}) : null,
     });
 
     const token = createToken({payload: {id: createdUser.id}, options: {expiresIn: "15m"}})

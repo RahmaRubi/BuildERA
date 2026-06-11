@@ -3,7 +3,6 @@ export default (sequelize, DataTypes) => {
         userName: { type: DataTypes.TEXT, allowNull: false },
         email: { type: DataTypes.STRING, allowNull: false, unique: true },
         password: { type: DataTypes.TEXT, allowNull: false },
-        phone: { type: DataTypes.TEXT },
         role: { type: DataTypes.TEXT, defaultValue: 'user' },
         isConfirmed: { type: DataTypes.BOOLEAN, defaultValue: false },
         isDeleted: { type: DataTypes.BOOLEAN, defaultValue: false },

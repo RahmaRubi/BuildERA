@@ -5,7 +5,7 @@ const User = db.User;
 
 export const getProfile = async (req, res, next) => {
     const authUser = req.user.toJSON();
-    authUser.phone = decrypt({ data: authUser.phone });
+    if (authUser.phone) authUser.phone = decrypt({ data: authUser.phone });
     return res.status(200).json({ success: true, data: authUser });
 };
 
@@ -20,7 +20,7 @@ export const updateProfile = async (req, res, next) => {
 
     const updated = await User.findByPk(req.user.id);
     const userJSON = updated.toJSON();
-    userJSON.phone = decrypt({ data: userJSON.phone });
+    if (userJSON.phone) userJSON.phone = decrypt({ data: userJSON.phone });
     return res.status(200).json({ success: true, data: userJSON });
 };
 

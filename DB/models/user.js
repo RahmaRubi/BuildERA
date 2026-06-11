@@ -5,6 +5,7 @@ export default (sequelize, DataTypes) => {
         password: { type: DataTypes.TEXT, allowNull: false },
         role: { type: DataTypes.TEXT, defaultValue: 'user' },
         isConfirmed: { type: DataTypes.BOOLEAN, defaultValue: false },
+        imageUrl:  { type: DataTypes.TEXT, allowNull: true },
         isDeleted: { type: DataTypes.BOOLEAN, defaultValue: false },
         deletedAt: { type: DataTypes.DATE, allowNull: true },
     }, { paranoid: false })

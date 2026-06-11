@@ -1,4 +1,5 @@
 import db from '../../../DB/models/index.js';
+import { uploadImage } from '../../utils/cloudinary/index.js';
 const User = db.User;
 
 export const getProfile = async (req, res, next) => {
@@ -22,6 +23,15 @@ export const updateProfile = async (req, res, next) => {
 export const freezeAccount = async (req, res, next) => {
     await User.update({ isDeleted: true, deletedAt: new Date() }, { where: { id: req.user.id } });
     return res.status(200).json({ success: true, message: 'Account frozen successfully' });
+};
+
+export const uploadProfilePicture = async (req, res, next) => {
+    if (!req.file) return next(new Error('No image uploaded', { cause: 400 }));
+
+    const imageUrl = await uploadImage(req.file.buffer, 'buildera/profiles');
+    await db.User.update({ imageUrl }, { where: { id: req.user.id } });
+
+    return res.status(200).json({ success: true, data: { imageUrl } });
 };
 
 export const getFavorites = async (req, res, next) => {

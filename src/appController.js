@@ -37,6 +37,7 @@ export const bootstrap = async (app, express) => {
     // Schema migrations
     const migrations = [
         'ALTER TABLE Users DROP COLUMN IF EXISTS phone',
+        'ALTER TABLE Users ADD COLUMN IF NOT EXISTS imageUrl TEXT NULL',
         `CREATE TABLE IF NOT EXISTS Favorites (
             id INT AUTO_INCREMENT PRIMARY KEY,
             user_id INT NOT NULL,

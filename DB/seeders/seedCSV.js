@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { parse } from 'csv-parse/sync';
 import { readFileSync, writeFileSync, existsSync } from 'fs';
 import { join, dirname } from 'path';
@@ -19,6 +20,8 @@ const SOURCES = [
   { coreFile: 'Core_Cases.csv',          type: 'Case',         productFile: 'Cases.csv' },
   { coreFile: 'Core_Power Supplies.csv', type: 'Power Supply', productFile: 'Power Supplies.csv' },
   { coreFile: 'Core_CPU Coolers.csv',    type: 'CPU Cooler',   productFile: 'CPU Coolers.csv' },
+  { coreFile: 'Core_Storage.csv',        type: 'Storage',      productFile: 'Storage.csv' },
+  { coreFile: 'Core_Monitors.csv',       type: 'Monitor',      productFile: 'Monitors.csv' },
 ];
 
 // ── Progress helpers ──────────────────────────────────────────────────────────

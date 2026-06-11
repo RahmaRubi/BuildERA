@@ -13,7 +13,7 @@ export const register = async (req, res, next) => {
       userName,
       email,
       password: hash({data:password, saltRound:8}),
-      phone: encrypt({data: phone}),
+      phone: phone ? encrypt({data: phone}) : null,
     });
 
     const token = createToken({payload: {id: createdUser.id}, options: {expiresIn: "15m"}})

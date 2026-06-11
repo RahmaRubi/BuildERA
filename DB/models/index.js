@@ -7,6 +7,7 @@ import defineBuildComponent from './buildComponent.js';
 import defineComponent      from './component.js';
 import defineComponentSpec  from './componentSpec.js';
 import defineSpec           from './spec.js';
+import defineFavorite       from './favorite.js';
 
 const _require = createRequire(import.meta.url);
 const mysql2   = _require('mysql2');
@@ -29,6 +30,7 @@ const modelDefiners = [
   defineComponent,
   defineComponentSpec,
   defineSpec,
+  defineFavorite,
 ];
 
 for (const definer of modelDefiners) {

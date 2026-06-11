@@ -12,4 +12,9 @@ router.get("/profile",           asyncHandler(userServices.getProfile));
 router.put("/profile",           isValid(validationServices.updateProfile), asyncHandler(userServices.updateProfile));
 router.delete("/freeze-account", asyncHandler(userServices.freezeAccount));
 
+router.get("/favorites",                 asyncHandler(userServices.getFavorites));
+router.post("/favorites/:componentId",   asyncHandler(userServices.addFavorite));
+router.delete("/favorites/:componentId", asyncHandler(userServices.removeFavorite));
+
 export default router;
+    

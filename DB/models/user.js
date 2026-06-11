@@ -10,7 +10,8 @@ export default (sequelize, DataTypes) => {
         deletedAt: { type: DataTypes.DATE, allowNull: true },
     }, { paranoid: false })
     User.associate = (db) => {
-        User.hasMany(db.Build, { foreignKey: { name: 'user_id', allowNull: false }, onDelete: 'CASCADE' })
+        User.hasMany(db.Build,    { foreignKey: { name: 'user_id', allowNull: false }, onDelete: 'CASCADE' });
+        User.hasMany(db.Favorite, { foreignKey: 'user_id', onDelete: 'CASCADE' });
     }
 
     return User

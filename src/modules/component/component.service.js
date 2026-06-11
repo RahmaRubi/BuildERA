@@ -1,5 +1,5 @@
 import db from '../../../DB/models/index.js';
-import { Op } from 'sequelize';
+import { Op, Sequelize } from 'sequelize';
 
 export const listComponents = async (req, res) => {
   const { type, brand, minPrice, maxPrice, search, page = 1, limit = 20 } = req.query;
@@ -12,7 +12,12 @@ export const listComponents = async (req, res) => {
     if (minPrice) where.price[Op.gte] = parseFloat(minPrice);
     if (maxPrice) where.price[Op.lte] = parseFloat(maxPrice);
   }
-  if (search) where.name = { [Op.like]: `%${search}%` };
+  if (search) {
+    where[Op.and] = Sequelize.where(
+      Sequelize.fn('LOWER', Sequelize.col('name')),
+      { [Op.like]: `%${search.toLowerCase()}%` }
+    );
+  }
 
   const offset = (parseInt(page) - 1) * parseInt(limit);
 
@@ -32,16 +37,6 @@ export const listComponents = async (req, res) => {
       components,
     },
   });
-};
-
-export const getTypes = async (req, res) => {
-  const results = await db.Component.findAll({
-    attributes: ['type'],
-    group: ['type'],
-    order: [['type', 'ASC']],
-  });
-  const types = results.map(r => r.type);
-  return res.status(200).json({ success: true, data: { types } });
 };
 
 export const getComponent = async (req, res, next) => {

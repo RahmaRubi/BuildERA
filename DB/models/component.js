@@ -8,9 +8,10 @@ export default (sequelize, DataTypes) => {
     })
 
     Component.associate = (db) => {
-        Component.hasMany(db.Spec, { foreignKey: { name: 'component_id', allowNull: false }, onDelete: 'CASCADE' })
-        Component.hasMany(db.ComponentSpec, { foreignKey: { name: 'component_id', allowNull: false }, onDelete: 'CASCADE' })
-        Component.hasMany(db.BuildComponent, { foreignKey: { name: 'component_id', allowNull: false }, onDelete: 'CASCADE' })
+        Component.hasMany(db.Spec,           { foreignKey: { name: 'component_id', allowNull: false }, onDelete: 'CASCADE' });
+        Component.hasMany(db.ComponentSpec,  { foreignKey: { name: 'component_id', allowNull: false }, onDelete: 'CASCADE' });
+        Component.hasMany(db.BuildComponent, { foreignKey: { name: 'component_id', allowNull: false }, onDelete: 'CASCADE' });
+        Component.hasMany(db.Favorite,       { foreignKey: 'component_id', onDelete: 'CASCADE' });
     }
 
     return Component

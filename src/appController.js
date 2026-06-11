@@ -38,6 +38,16 @@ export const bootstrap = async (app, express) => {
     const migrations = [
         'ALTER TABLE Builds ADD COLUMN IF NOT EXISTS name VARCHAR(255) NULL',
         'ALTER TABLE Builds ADD COLUMN IF NOT EXISTS shareToken VARCHAR(255) NULL',
+        `CREATE TABLE IF NOT EXISTS Favorites (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            user_id INT NOT NULL,
+            component_id INT NOT NULL,
+            createdAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updatedAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            UNIQUE KEY uq_user_component (user_id, component_id),
+            FOREIGN KEY (user_id) REFERENCES Users(id) ON DELETE CASCADE,
+            FOREIGN KEY (component_id) REFERENCES Components(id) ON DELETE CASCADE
+        )`,
     ];
     for (const sql of migrations) {
         await db.sequelize.query(sql)

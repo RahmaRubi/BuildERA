@@ -34,3 +34,34 @@ export const freezeAccount = async (req, res, next) => {
     await User.update({ isDeleted: true, deletedAt: new Date() }, { where: { id: req.user.id } });
     return res.status(200).json({ success: true, message: 'Account frozen successfully' });
 };
+
+export const getFavorites = async (req, res, next) => {
+    const favorites = await db.Favorite.findAll({
+        where: { user_id: req.user.id },
+        include: [{ model: db.Component }],
+    });
+    const components = favorites.map(f => f.Component);
+    return res.status(200).json({ success: true, data: components });
+};
+
+export const addFavorite = async (req, res, next) => {
+    const { componentId } = req.params;
+
+    const component = await db.Component.findByPk(componentId);
+    if (!component) return next(new Error('Component not found', { cause: 404 }));
+
+    const existing = await db.Favorite.findOne({ where: { user_id: req.user.id, component_id: componentId } });
+    if (existing) return next(new Error('Component already in favorites', { cause: 409 }));
+
+    await db.Favorite.create({ user_id: req.user.id, component_id: componentId });
+    return res.status(201).json({ success: true, message: 'Added to favorites' });
+};
+
+export const removeFavorite = async (req, res, next) => {
+    const { componentId } = req.params;
+
+    const deleted = await db.Favorite.destroy({ where: { user_id: req.user.id, component_id: componentId } });
+    if (!deleted) return next(new Error('Favorite not found', { cause: 404 }));
+
+    return res.status(200).json({ success: true, message: 'Removed from favorites' });
+};

@@ -38,9 +38,21 @@ export const freezeAccount = async (req, res, next) => {
 export const getFavorites = async (req, res, next) => {
     const favorites = await db.Favorite.findAll({
         where: { user_id: req.user.id },
-        include: [{ model: db.Component }],
+        include: [{
+            model: db.Component,
+            include: [{
+                model: db.ComponentSpec,
+                include: [{ model: db.Spec, attributes: ['name'] }],
+            }],
+        }],
     });
-    const components = favorites.map(f => f.Component);
+
+    const components = favorites.map(f => {
+        const { ComponentSpecs, ...rest } = f.Component.get({ plain: true });
+        const specs = Object.fromEntries(ComponentSpecs.map(cs => [cs.Spec.name, cs.value]));
+        return { ...rest, specs };
+    });
+
     return res.status(200).json({ success: true, data: components });
 };
 

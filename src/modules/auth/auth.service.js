@@ -55,10 +55,14 @@ export const login = async (req, res, next) => {
     }
     const token = createToken({payload: {email, id: userExist.id}, options:{expiresIn: '1h'}})
 
+    const DEFAULT_AVATAR = 'https://ui-avatars.com/api/?background=6366f1&color=fff&name=' + encodeURIComponent(userExist.userName);
+
     return res.status(200).json({
       success: true,
       message: "logged in successfully",
       token,
+      userName: userExist.userName,
+      imageUrl: userExist.imageUrl || DEFAULT_AVATAR,
     });
 
 };

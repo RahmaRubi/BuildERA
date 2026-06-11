@@ -9,6 +9,10 @@ const FRONTEND_URL = (process.env.FRONTEND_URL || 'http://localhost:5173').repla
 export const register = async (req, res, next) => {
 
     const { userName, email, password } = req.body;
+
+    const existingUser = await User.findOne({ where: { email } });
+    if (existingUser) return next(new Error('Email already registered', { cause: 409 }));
+
     const createdUser = await User.create({
       userName,
       email,

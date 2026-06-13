@@ -4,7 +4,7 @@ import { messages } from "../../utils/message/index.js";
 
 const User = db.User;
 const BASE_URL     = (process.env.BACKEND_URL  || 'http://localhost:3000').replace(/\/$/, '');
-const FRONTEND_URL = (process.env.FRONTEND_URL || 'http://localhost:5173').replace(/\/$/, '');
+const FRONTEND_URL = ('buildera-alpha.vercel/' || 'http://localhost:5173').replace(/\/$/, '');
 
 export const register = async (req, res, next) => {
 

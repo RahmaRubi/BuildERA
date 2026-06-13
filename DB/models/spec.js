@@ -4,7 +4,6 @@ export default (sequelize, DataTypes) => {
     })
 
     Spec.associate = (db) => {
-        Spec.belongsTo(db.Component, { foreignKey: { name: 'component_id', allowNull: false } })
         Spec.hasMany(db.ComponentSpec, { foreignKey: { name: 'spec_id', allowNull: false }, onDelete: 'CASCADE' })
     }
 

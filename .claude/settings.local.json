@@ -14,7 +14,10 @@
       "Bash(git commit -m ' *)",
       "Bash(git push *)",
       "Bash(git checkout *)",
-      "Bash(git merge *)"
+      "Bash(git merge *)",
+      "Bash(ls -la \"d:\\\\University\\\\Last_Semesterrrr\\\\Grad_Project\\\\\" | grep -i era)",
+      "Read(//d/University/Last_Semesterrrr/**)",
+      "Bash(xargs -I {} head -20 \"{}\")"
     ]
   }
 }

@@ -7,7 +7,16 @@
     "Case",
     "Power Supply",
     "CPU Cooler",
-    "Storage",
-    "Monitor"
+    "Storage"
+  ],
+  "urlsBackfilled": [
+    "CPU",
+    "Motherboard",
+    "Memory",
+    "Video Card",
+    "Case",
+    "Power Supply",
+    "CPU Cooler",
+    "Storage"
   ]
 }

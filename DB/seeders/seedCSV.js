@@ -9,10 +9,11 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const DATA_DIR    = join(__dirname, '../../seeders/data');
 const PROGRESS_FILE = join(__dirname, '../../seeders/progress.json');
 
-const SKIP_COLS = new Set(['Name', 'Manufacturer', 'Part #', 'Model', 'URL']);
+const CORE_SKIP_COLS = new Set(['Name', 'Manufacturer', 'Part #', 'Model', 'URL']);
 const BATCH_SIZE = 100;
 
-const SOURCES = [
+// Core types: components + specs come from Core Details CSVs; price/imageUrl/url from Products CSVs
+const CORE_SOURCES = [
   { coreFile: 'Core_CPUs.csv',           type: 'CPU',          productFile: 'CPUs.csv' },
   { coreFile: 'Core_Motherboards.csv',   type: 'Motherboard',  productFile: 'Motherboards.csv' },
   { coreFile: 'Core_Memory.csv',         type: 'Memory',       productFile: 'Memory.csv' },
@@ -21,20 +22,19 @@ const SOURCES = [
   { coreFile: 'Core_Power Supplies.csv', type: 'Power Supply', productFile: 'Power Supplies.csv' },
   { coreFile: 'Core_CPU Coolers.csv',    type: 'CPU Cooler',   productFile: 'CPU Coolers.csv' },
   { coreFile: 'Core_Storage.csv',        type: 'Storage',      productFile: 'Storage.csv' },
-  { coreFile: 'Core_Monitors.csv',       type: 'Monitor',      productFile: 'Monitors.csv' },
 ];
 
 // ── Progress helpers ──────────────────────────────────────────────────────────
 
 function loadProgress() {
-  if (!existsSync(PROGRESS_FILE)) return { done: [] };
+  if (!existsSync(PROGRESS_FILE)) return { done: [], urlsBackfilled: [] };
   try {
     const raw = JSON.parse(readFileSync(PROGRESS_FILE, 'utf-8'));
-    // Handle old format from previous seeder
-    if (!Array.isArray(raw.done)) return { done: [] };
+    if (!Array.isArray(raw.done)) return { done: [], urlsBackfilled: [] };
+    if (!Array.isArray(raw.urlsBackfilled)) raw.urlsBackfilled = [];
     return raw;
   } catch {
-    return { done: [] };
+    return { done: [], urlsBackfilled: [] };
   }
 }
 
@@ -62,6 +62,7 @@ function buildProductLookup(productFile) {
     if (name) map.set(name, {
       price:    parseFloat(row.Price) || null,
       imageUrl: row.Image || null,
+      url:      row.URL   || null,
     });
   }
   return map;
@@ -72,24 +73,44 @@ function extractBrand(manufacturer, name) {
   return cleaned || (name || '').split(' ')[0];
 }
 
-// ── Core seeder ───────────────────────────────────────────────────────────────
+async function bulkInsertSpecs(created, specData) {
+  const specRows = [];
+  const specMeta = [];
+  for (let j = 0; j < created.length; j++) {
+    const compId = created[j].id;
+    for (const [specName, specValue] of Object.entries(specData[j])) {
+      specRows.push({ name: specName, component_id: compId });
+      specMeta.push({ componentId: compId, value: specValue });
+    }
+  }
+  if (specRows.length === 0) return;
+  const createdSpecs = await db.Spec.bulkCreate(specRows);
+  await db.ComponentSpec.bulkCreate(
+    createdSpecs.map((spec, idx) => ({
+      component_id: specMeta[idx].componentId,
+      spec_id:      spec.id,
+      value:        specMeta[idx].value,
+    }))
+  );
+}
 
-async function seedType({ coreFile, type, productFile }, progress) {
+// ── Phase 1: seed core types (specs from Core CSVs) ──────────────────────────
+
+async function seedCoreType({ coreFile, type, productFile }, progress) {
   if (progress.done.includes(type)) {
     console.log(`[${type}] already done — skipping`);
     return 0;
   }
 
-  // Clean up any partial data from a previous interrupted run
   const existing = await db.Component.count({ where: { type } });
   if (existing > 0) {
-    console.log(`[${type}] found ${existing} partial rows from last run — cleaning up...`);
+    console.log(`[${type}] found ${existing} partial rows — cleaning up...`);
     await db.Component.destroy({ where: { type } });
   }
 
-  const rows       = readCSV(join(DATA_DIR, 'Core Details', 'specs', coreFile));
-  const products   = buildProductLookup(productFile);
-  const total      = rows.length;
+  const rows     = readCSV(join(DATA_DIR, 'Core Details', 'specs', coreFile));
+  const products = buildProductLookup(productFile);
+  const total    = rows.length;
 
   console.log(`\n[${type}] ${total} rows — seeding in batches of ${BATCH_SIZE}...`);
 
@@ -97,7 +118,6 @@ async function seedType({ coreFile, type, productFile }, progress) {
 
   for (let i = 0; i < total; i += BATCH_SIZE) {
     const batch = rows.slice(i, i + BATCH_SIZE);
-
     const componentData = [];
     const specData      = [];
 
@@ -106,52 +126,31 @@ async function seedType({ coreFile, type, productFile }, progress) {
       if (!name) continue;
 
       const product  = products.get(name);
-      const price    = product?.price ?? null;
-      const imageUrl = product?.imageUrl ?? null;
-      const brand    = extractBrand(row.Manufacturer, name);
       const specs    = {};
 
       for (const [col, val] of Object.entries(row)) {
-        if (SKIP_COLS.has(col)) continue;
+        if (CORE_SKIP_COLS.has(col)) continue;
         const v = String(val || '').trim();
         if (v) specs[col] = v;
       }
 
-      componentData.push({ name, type, brand, price, imageUrl });
+      componentData.push({
+        name,
+        type,
+        brand:    extractBrand(row.Manufacturer, name),
+        price:    product?.price    ?? null,
+        imageUrl: product?.imageUrl ?? null,
+        url:      product?.url      ?? null,
+      });
       specData.push(specs);
     }
 
     if (componentData.length === 0) continue;
 
-    // 1 — components
     const created = await db.Component.bulkCreate(componentData);
-
-    // 2 — specs + parallel meta for componentSpec values
-    const specRows = [];
-    const specMeta = [];
-    for (let j = 0; j < created.length; j++) {
-      const compId = created[j].id;
-      for (const [specName, specValue] of Object.entries(specData[j])) {
-        specRows.push({ name: specName, component_id: compId });
-        specMeta.push({ componentId: compId, value: specValue });
-      }
-    }
-
-    // 3 — specs bulk insert
-    const createdSpecs = await db.Spec.bulkCreate(specRows);
-
-    // 4 — componentSpecs bulk insert
-    await db.ComponentSpec.bulkCreate(
-      createdSpecs.map((spec, idx) => ({
-        component_id: specMeta[idx].componentId,
-        spec_id:      spec.id,
-        value:        specMeta[idx].value,
-      }))
-    );
+    await bulkInsertSpecs(created, specData);
 
     inserted += componentData.length;
-
-    // Save progress after every batch so a restart knows how far we got
     progress.lastBatch = { type, batchStart: i + BATCH_SIZE, inserted };
     saveProgress(progress);
 
@@ -159,13 +158,38 @@ async function seedType({ coreFile, type, productFile }, progress) {
     process.stdout.write(`\r  [${type}] ${inserted} inserted (${pct}%)`);
   }
 
-  // Mark type as fully done
   progress.done.push(type);
   delete progress.lastBatch;
   saveProgress(progress);
 
   console.log(`\n  [${type}] complete: ${inserted} inserted`);
   return inserted;
+}
+
+// ── Phase 2: backfill url for already-seeded core types ───────────────────────
+
+async function backfillCoreUrls(progress) {
+  console.log('\n--- Backfilling URLs for core types ---');
+
+  for (const { type, productFile } of CORE_SOURCES) {
+    if (progress.urlsBackfilled.includes(type)) {
+      console.log(`[${type}] URLs already backfilled — skipping`);
+      continue;
+    }
+
+    const products = buildProductLookup(productFile);
+    let updated = 0;
+
+    for (const [name, { url }] of products.entries()) {
+      if (!url) continue;
+      const [count] = await db.Component.update({ url }, { where: { name, type } });
+      updated += count;
+    }
+
+    progress.urlsBackfilled.push(type);
+    saveProgress(progress);
+    console.log(`  [${type}] updated ${updated} URLs`);
+  }
 }
 
 // ── Entry point ───────────────────────────────────────────────────────────────
@@ -179,16 +203,20 @@ async function seed() {
     const progress = loadProgress();
 
     if (progress.done.length > 0) {
-      console.log(`Resuming — already done: ${progress.done.join(', ')}`);
+      console.log(`Resuming — core done: ${progress.done.join(', ')}`);
     }
 
+    // Phase 1 — core types (skips already-done ones)
     let total = 0;
-    for (const source of SOURCES) {
-      total += await seedType(source, progress);
+    for (const source of CORE_SOURCES) {
+      total += await seedCoreType(source, progress);
     }
+
+    // Phase 2 — backfill url on already-seeded core components
+    await backfillCoreUrls(progress);
 
     console.log('\n=============================');
-    console.log(`Seeding complete. Total inserted: ${total} components.`);
+    console.log(`Seeding complete. Components inserted this run: ${total}`);
   } catch (err) {
     console.error('\nSeeding failed:', err.message);
     process.exit(1);

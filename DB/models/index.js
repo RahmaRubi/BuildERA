@@ -6,6 +6,7 @@ import defineBuild          from './build.js';
 import defineBuildComponent from './buildComponent.js';
 import defineComponent      from './component.js';
 import defineComponentSpec  from './componentSpec.js';
+import defineComponentUrl   from './componentUrl.js';
 import defineSpec           from './spec.js';
 import defineFavorite       from './favorite.js';
 
@@ -29,6 +30,7 @@ const modelDefiners = [
   defineBuildComponent,
   defineComponent,
   defineComponentSpec,
+  defineComponentUrl,
   defineSpec,
   defineFavorite,
 ];

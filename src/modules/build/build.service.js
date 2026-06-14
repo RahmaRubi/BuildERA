@@ -34,12 +34,18 @@ export const getBuilds = async (req, res) => {
 export const getBuild = async (req, res, next) => {
   const build = await db.Build.findOne({
     where: { id: req.params.id, user_id: req.user.id },
-    include: [{ model: db.BuildComponent, include: [{ model: db.Component }] }],
+    include: [{
+      model: db.BuildComponent,
+      include: [{ model: db.Component, include: [{ model: db.ComponentUrl, attributes: ['url', 'retailer'] }] }],
+    }],
   });
   if (!build) return next(new Error('Build not found', { cause: 404 }));
 
   const { BuildComponents, ...buildData } = build.get({ plain: true });
-  const components = BuildComponents.map(bc => ({ ...bc.Component, buildComponentId: bc.id }));
+  const components = BuildComponents.map(bc => {
+    const { ComponentUrls, ...comp } = bc.Component;
+    return { ...comp, urls: (ComponentUrls || []).map(u => u.url), buildComponentId: bc.id };
+  });
   const totalPrice = components.reduce((sum, c) => sum + (c.price || 0), 0);
 
   return res.status(200).json({ success: true, data: { ...buildData, components, totalPrice } });
@@ -126,12 +132,18 @@ export const unshareBuild = async (req, res, next) => {
 export const getSharedBuild = async (req, res, next) => {
   const build = await db.Build.findOne({
     where: { shareToken: req.params.token },
-    include: [{ model: db.BuildComponent, include: [{ model: db.Component }] }],
+    include: [{
+      model: db.BuildComponent,
+      include: [{ model: db.Component, include: [{ model: db.ComponentUrl, attributes: ['url', 'retailer'] }] }],
+    }],
   });
   if (!build) return next(new Error('Shared build not found', { cause: 404 }));
 
   const { BuildComponents, ...buildData } = build.get({ plain: true });
-  const components = BuildComponents.map(bc => ({ ...bc.Component, buildComponentId: bc.id }));
+  const components = BuildComponents.map(bc => {
+    const { ComponentUrls, ...comp } = bc.Component;
+    return { ...comp, urls: (ComponentUrls || []).map(u => u.url), buildComponentId: bc.id };
+  });
   const totalPrice = components.reduce((sum, c) => sum + (c.price || 0), 0);
 
   return res.status(200).json({ success: true, data: { ...buildData, components, totalPrice } });

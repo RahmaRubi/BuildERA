@@ -140,7 +140,6 @@ async function seedCoreType({ coreFile, type, productFile }, progress) {
         brand:    extractBrand(row.Manufacturer, name),
         price:    product?.price    ?? null,
         imageUrl: product?.imageUrl ?? null,
-        url:      product?.url      ?? null,
       });
       specData.push(specs);
     }
@@ -149,6 +148,13 @@ async function seedCoreType({ coreFile, type, productFile }, progress) {
 
     const created = await db.Component.bulkCreate(componentData);
     await bulkInsertSpecs(created, specData);
+
+    const urlRecords = [];
+    for (let j = 0; j < created.length; j++) {
+      const product = products.get(componentData[j].name);
+      if (product?.url) urlRecords.push({ component_id: created[j].id, url: product.url });
+    }
+    if (urlRecords.length > 0) await db.ComponentUrl.bulkCreate(urlRecords);
 
     inserted += componentData.length;
     progress.lastBatch = { type, batchStart: i + BATCH_SIZE, inserted };
@@ -182,13 +188,18 @@ async function backfillCoreUrls(progress) {
 
     for (const [name, { url }] of products.entries()) {
       if (!url) continue;
-      const [count] = await db.Component.update({ url }, { where: { name, type } });
-      updated += count;
+      const component = await db.Component.findOne({ where: { name, type } });
+      if (!component) continue;
+      const exists = await db.ComponentUrl.findOne({ where: { component_id: component.id, url } });
+      if (!exists) {
+        await db.ComponentUrl.create({ component_id: component.id, url });
+        updated++;
+      }
     }
 
     progress.urlsBackfilled.push(type);
     saveProgress(progress);
-    console.log(`  [${type}] updated ${updated} URLs`);
+    console.log(`  [${type}] added ${updated} URLs`);
   }
 }
 

@@ -105,7 +105,13 @@ async function seedCoreType({ coreFile, type, productFile }, progress) {
   const existing = await db.Component.count({ where: { type } });
   if (existing > 0) {
     console.log(`[${type}] found ${existing} partial rows — cleaning up...`);
+    await db.sequelize.query(
+      'DELETE cu FROM ComponentUrls cu INNER JOIN Components c ON cu.component_id = c.id WHERE c.type = ?',
+      { replacements: [type] }
+    );
+    await db.sequelize.query('SET FOREIGN_KEY_CHECKS = 0');
     await db.Component.destroy({ where: { type } });
+    await db.sequelize.query('SET FOREIGN_KEY_CHECKS = 1');
   }
 
   const rows     = readCSV(join(DATA_DIR, 'Core Details', 'specs', coreFile));

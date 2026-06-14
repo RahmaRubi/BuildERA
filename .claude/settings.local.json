@@ -17,7 +17,10 @@
       "Bash(git merge *)",
       "Bash(ls -la \"d:\\\\University\\\\Last_Semesterrrr\\\\Grad_Project\\\\\" | grep -i era)",
       "Read(//d/University/Last_Semesterrrr/**)",
-      "Bash(xargs -I {} head -20 \"{}\")"
+      "Bash(xargs -I {} head -20 \"{}\")",
+      "Bash(node check_db.mjs)",
+      "Bash(node -e ' *)",
+      "Bash(node fix_orphan_specs.mjs)"
     ]
   }
 }

@@ -6,7 +6,7 @@ export default (sequelize, DataTypes) => {
         },
         budget: {
             type: DataTypes.FLOAT,
-            allowNull: false
+            allowNull: true
         },
         purpose: {
             type: DataTypes.TEXT,

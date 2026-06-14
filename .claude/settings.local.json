@@ -20,7 +20,8 @@
       "Bash(xargs -I {} head -20 \"{}\")",
       "Bash(node check_db.mjs)",
       "Bash(node -e ' *)",
-      "Bash(node fix_orphan_specs.mjs)"
+      "Bash(node fix_orphan_specs.mjs)",
+      "PowerShell(npx sequelize-cli db:migrate)"
     ]
   }
 }

@@ -24,7 +24,6 @@ export const listComponents = async (req, res) => {
   const { count: total, rows } = await db.Component.findAndCountAll({
     where,
     include: [{ model: db.ComponentUrl, attributes: ['url', 'retailer'] }],
-    order: [['name', 'ASC']],
     limit: parseInt(limit),
     offset,
   });

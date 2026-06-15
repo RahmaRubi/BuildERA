@@ -47,9 +47,10 @@ function buildProductLookup(productFile) {
   for (const row of rows) {
     const name = (row.Name || '').trim();
     if (!name) continue;
+    const img = row.Image && !row.Image.includes('no-image') ? row.Image : null;
     map.set(name, {
       price:    parseFloat(row.Price) || null,
-      imageUrl: row.Image             || null,
+      imageUrl: img,
       url:      row.URL               || null,
     });
   }

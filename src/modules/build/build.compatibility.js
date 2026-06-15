@@ -230,6 +230,22 @@ const RULES = [
     },
   },
   {
+    id: 'MEMORY_FORM_FACTOR',
+    needs: ['Memory'],
+    check(byType) {
+      const issues = [];
+      for (const ram of byType['Memory']) {
+        const ff = String(ram.specs['Form Factor'] || '');
+        if (/so[-\s]?dimm/i.test(ff))
+          issues.push(makeIssue('error', this.id, [ram.name],
+            `${ram.name} is a SO-DIMM (laptop) memory module and is not compatible with desktop motherboards`,
+            'Replace with a standard DIMM module'
+          ));
+      }
+      return issues.length ? issues : null;
+    },
+  },
+  {
     id: 'SINGLE_CHANNEL_RAM',
     needs: ['Memory'],
     check(byType) {

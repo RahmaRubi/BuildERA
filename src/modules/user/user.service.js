@@ -39,6 +39,7 @@ export const getFavorites = async (req, res, next) => {
         where: { user_id: req.user.id },
         include: [{
             model: db.Component,
+            required: true,
             include: [{
                 model: db.ComponentSpec,
                 include: [{ model: db.Spec, attributes: ['name'] }],

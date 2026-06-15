@@ -49,6 +49,21 @@ function makeIssue(severity, rule, componentNames, message, fix) {
   return { severity, rule, components: componentNames, message, fix };
 }
 
+function parseStickCount(modules) {
+  const m = String(modules || '').match(/^(\d+)\s*x/i);
+  return m ? parseInt(m[1]) : 1;
+}
+
+function parseGb(val) {
+  const m = String(val || '').match(/([\d.]+)\s*GB/i);
+  return m ? parseFloat(m[1]) : null;
+}
+
+function countM2Slots(m2SlotsSpec) {
+  if (!m2SlotsSpec || String(m2SlotsSpec) === 'nan') return 0;
+  return String(m2SlotsSpec).split('|').map(s => s.trim()).filter(Boolean).length;
+}
+
 // ── PSU connector helpers ─────────────────────────────────────────────────────
 
 /**
@@ -330,6 +345,78 @@ const RULES = [
           ));
       }
 
+      return issues.length ? issues : null;
+    },
+  },
+  {
+    id: 'MEMORY_SLOTS_EXCEEDED',
+    needs: ['Memory', 'Motherboard'],
+    check(byType) {
+      const mb    = byType['Motherboard'][0];
+      const slots = parseInt(parseFloat(mb.specs['Memory Slots']));
+      if (!slots) return null;
+      const totalSticks = byType['Memory'].reduce((sum, ram) => sum + parseStickCount(ram.specs['Modules']), 0);
+      if (totalSticks > slots)
+        return makeIssue('error', this.id, [mb.name],
+          `Build requires ${totalSticks} memory slots but motherboard only has ${slots}`,
+          `Remove memory kits to stay within ${slots} slots, or choose a motherboard with more slots`
+        );
+      return null;
+    },
+  },
+  {
+    id: 'MEMORY_MAX_EXCEEDED',
+    needs: ['Memory', 'Motherboard'],
+    check(byType) {
+      const mb    = byType['Motherboard'][0];
+      const maxGb = parseGb(mb.specs['Memory Max']);
+      if (!maxGb) return null;
+      let totalGb = 0;
+      for (const ram of byType['Memory']) {
+        const m = String(ram.specs['Modules'] || '').match(/(\d+)\s*x\s*([\d.]+)\s*GB/i);
+        if (m) totalGb += parseInt(m[1]) * parseFloat(m[2]);
+      }
+      if (totalGb > maxGb)
+        return makeIssue('error', this.id, [mb.name],
+          `Total RAM (${totalGb} GB) exceeds motherboard maximum supported memory (${maxGb} GB)`,
+          `Reduce total RAM to ${maxGb} GB or less`
+        );
+      return null;
+    },
+  },
+  {
+    id: 'M2_SLOTS_EXCEEDED',
+    needs: ['Storage', 'Motherboard'],
+    check(byType) {
+      const mb       = byType['Motherboard'][0];
+      const m2Slots  = countM2Slots(mb.specs['M.2 Slots']);
+      if (!m2Slots) return null;
+      const m2Drives = byType['Storage'].filter(s => /m\.?2/i.test(s.specs['Form Factor'] || '') || /m\.?2/i.test(s.specs['Interface'] || ''));
+      if (m2Drives.length > m2Slots)
+        return makeIssue('error', this.id, [mb.name],
+          `Build has ${m2Drives.length} M.2 drives but motherboard only has ${m2Slots} M.2 slot${m2Slots > 1 ? 's' : ''}`,
+          `Remove an M.2 drive or choose a motherboard with more M.2 slots`
+        );
+      return null;
+    },
+  },
+  {
+    id: 'ECC_NOT_SUPPORTED',
+    needs: ['Memory', 'CPU'],
+    check(byType) {
+      const cpu        = byType['CPU'][0];
+      const eccSupport = norm(cpu.specs['ECC Support']);
+      if (eccSupport === 'yes') return null;
+      const issues = [];
+      for (const ram of byType['Memory']) {
+        const isEcc = /\becc\b/i.test(ram.specs['ECC / Registered'] || '') &&
+                      !/non-ecc/i.test(ram.specs['ECC / Registered'] || '');
+        if (isEcc)
+          issues.push(makeIssue('warning', this.id, [ram.name, cpu.name],
+            `${ram.name} is ECC memory but ${cpu.name} does not support ECC — error correction will be disabled`,
+            'Use non-ECC memory, or choose a CPU that supports ECC'
+          ));
+      }
       return issues.length ? issues : null;
     },
   },

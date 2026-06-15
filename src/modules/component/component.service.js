@@ -2,7 +2,7 @@ import db from '../../../DB/models/index.js';
 import { Op, Sequelize } from 'sequelize';
 
 export const listComponents = async (req, res) => {
-  const { type, brand, minPrice, maxPrice, search, page = 1, limit = 20 } = req.query;
+  const { type, brand, minPrice, maxPrice, search, sortBy, order, page = 1, limit = 20 } = req.query;
   const where = {};
 
   if (type) where.type = type;
@@ -21,9 +21,13 @@ export const listComponents = async (req, res) => {
 
   const offset = (parseInt(page) - 1) * parseInt(limit);
 
+  const sortColumn = sortBy === 'price' ? 'price' : 'createdAt';
+  const sortOrder  = order === 'asc' ? 'ASC' : 'DESC';
+
   const { count: total, rows } = await db.Component.findAndCountAll({
     where,
     include: [{ model: db.ComponentUrl, attributes: ['url', 'retailer'] }],
+    order: [[sortColumn, sortOrder]],
     limit: parseInt(limit),
     offset,
   });

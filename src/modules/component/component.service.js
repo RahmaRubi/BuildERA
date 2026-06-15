@@ -24,10 +24,16 @@ export const listComponents = async (req, res) => {
   const sortColumn = sortBy === 'price' ? 'price' : 'createdAt';
   const sortOrder  = order === 'asc' ? 'ASC' : 'DESC';
 
+  // Components with both price and imageUrl rise to the top; incomplete ones sink to the bottom.
+  const completenessOrder = [
+    Sequelize.literal('CASE WHEN price IS NOT NULL AND imageUrl IS NOT NULL THEN 0 ELSE 1 END'),
+    'ASC',
+  ];
+
   const { count: total, rows } = await db.Component.findAndCountAll({
     where,
     include: [{ model: db.ComponentUrl, attributes: ['url', 'retailer'] }],
-    order: [[sortColumn, sortOrder]],
+    order: [completenessOrder, [sortColumn, sortOrder]],
     limit: parseInt(limit),
     offset,
   });

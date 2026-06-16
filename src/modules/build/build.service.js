@@ -80,11 +80,14 @@ export const addComponent = async (req, res, next) => {
   });
   if (existing) return next(new Error('Component already in this build', { cause: 400 }));
 
-  const typeConflict = await db.BuildComponent.findOne({
-    where: { build_id: build.id },
-    include: [{ model: db.Component, where: { type: component.type }, attributes: ['id', 'type'] }],
-  });
-  if (typeConflict) return next(new Error(`A ${component.type} is already in this build`, { cause: 400 }));
+  const MULTI_ALLOWED = ['Memory', 'Storage'];
+  if (!MULTI_ALLOWED.includes(component.type)) {
+    const typeConflict = await db.BuildComponent.findOne({
+      where: { build_id: build.id },
+      include: [{ model: db.Component, where: { type: component.type }, attributes: ['id', 'type'] }],
+    });
+    if (typeConflict) return next(new Error(`A ${component.type} is already in this build`, { cause: 400 }));
+  }
 
   const bcRows = await db.BuildComponent.findAll({
     where: { build_id: build.id },

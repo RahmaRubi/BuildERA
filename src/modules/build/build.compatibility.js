@@ -64,6 +64,25 @@ function countM2Slots(m2SlotsSpec) {
   return String(m2SlotsSpec).split('|').map(s => s.trim()).filter(Boolean).length;
 }
 
+function priceOf(specs) {
+  const raw = String(specs['Price'] || '0').replace(/[$,]/g, '');
+  const m = raw.match(/[\d]+\.?[\d]*/);
+  return m ? parseFloat(m[0]) : 0;
+}
+
+function chipsetTier(chipset) {
+  let c = String(chipset || '').trim().toUpperCase();
+  for (const brand of ['AMD ', 'INTEL ', 'NVIDIA ']) {
+    if (c.startsWith(brand)) { c = c.slice(brand.length); break; }
+  }
+  const m = c.match(/^([A-Z]+)/);
+  if (!m) return 'other';
+  const prefix = m[1];
+  if (prefix === 'Z' || prefix === 'X') return 'high';
+  if (prefix === 'B') return 'mid';
+  return 'other';
+}
+
 // ── PSU connector helpers ─────────────────────────────────────────────────────
 
 /**
@@ -418,6 +437,114 @@ const RULES = [
           ));
       }
       return issues.length ? issues : null;
+    },
+  },
+  {
+    id: 'MEMORY_CONSISTENCY',
+    needs: ['Memory'],
+    check(byType) {
+      if (byType['Memory'].length <= 1) return null;
+      const names = byType['Memory'].map(r => r.name);
+      if (new Set(names).size <= 1) return null;
+
+      const speeds = new Set(byType['Memory'].map(r => r.specs['Speed'] || ''));
+      const makers = new Set(byType['Memory'].map(r => r.specs['Manufacturer'] || ''));
+      const parts  = new Set(byType['Memory'].map(r => r.specs['Part #'] || ''));
+
+      const diffs = [];
+      if (speeds.size > 1) diffs.push(`speeds (${[...speeds].filter(Boolean).sort().join(', ')})`);
+      if (makers.size > 1) diffs.push(`manufacturers (${[...makers].filter(Boolean).sort().join(', ')})`);
+      if (parts.size  > 1) diffs.push(`models (${[...parts].filter(Boolean).sort().join(', ')})`);
+      if (!diffs.length) diffs.push('different products');
+
+      return makeIssue('error', this.id, names,
+        `Build mixes different RAM modules — ${diffs.join(', ')}: ${[...new Set(names)].sort().join(', ')}`,
+        'Use multiple units of the SAME RAM kit (identical ID, repeated) to reach the desired total capacity — do not mix RAM products'
+      );
+    },
+  },
+  {
+    id: 'COOLER_REQUIRED',
+    needs: ['CPU'],
+    check(byType) {
+      if ((byType['CPU Cooler'] || []).length > 0) return null;
+      const cpu = byType['CPU'][0];
+      const includesCooler = norm(cpu.specs['Includes Cooler'] || cpu.specs['Includes CPU Cooler'] || '');
+      const tdp = parseWatts(cpu.specs['TDP']);
+      const STOCK_TDP_LIMIT = 65;
+
+      const exempt = includesCooler === 'yes' && tdp !== null && tdp < STOCK_TDP_LIMIT;
+      if (exempt) return null;
+
+      let reason;
+      if (includesCooler !== 'yes') {
+        reason = 'the selected CPU does not include a stock cooler';
+      } else if (tdp === null) {
+        reason = "the selected CPU's TDP could not be determined";
+      } else {
+        reason = `the selected CPU's stock cooler is not sufficient at ${tdp}W (limit: ${STOCK_TDP_LIMIT}W)`;
+      }
+
+      return makeIssue('error', this.id, [cpu.name],
+        `No cooler selected, and ${reason}`,
+        "Add a CPU cooler compatible with the CPU's socket"
+      );
+    },
+  },
+  {
+    id: 'CPU_MOBO_TIER_MISMATCH',
+    needs: ['CPU', 'Motherboard'],
+    check(byType) {
+      const cpu  = byType['CPU'][0];
+      const mb   = byType['Motherboard'][0];
+      const cpuPrice  = priceOf(cpu.specs);
+      const moboPrice = priceOf(mb.specs);
+      if (cpuPrice <= 0 || moboPrice <= 0) return null;
+
+      const ratio = cpuPrice / moboPrice;
+      if (ratio > 4.0)
+        return makeIssue('warning', this.id, [cpu.name, mb.name],
+          `CPU ($${cpuPrice.toFixed(0)}) is ${ratio.toFixed(1)}x the price of the motherboard ($${moboPrice.toFixed(0)}) — likely a tier mismatch`,
+          "Choose a higher-tier motherboard for this CPU, or a CPU better matched to this motherboard's tier"
+        );
+
+      const invRatio = moboPrice / cpuPrice;
+      if (invRatio > 2.5)
+        return makeIssue('warning', this.id, [cpu.name, mb.name],
+          `Motherboard ($${moboPrice.toFixed(0)}) is ${invRatio.toFixed(1)}x the price of the CPU ($${cpuPrice.toFixed(0)}) — likely a tier mismatch`,
+          "Choose a CPU that makes better use of this motherboard's tier, or a more budget-appropriate motherboard"
+        );
+
+      return null;
+    },
+  },
+  {
+    id: 'CPU_MOBO_CHIPSET_TIER',
+    needs: ['CPU', 'Motherboard'],
+    check(byType) {
+      const cpu  = byType['CPU'][0];
+      const mb   = byType['Motherboard'][0];
+      const cpuPrice = priceOf(cpu.specs);
+      if (cpuPrice <= 0) return null;
+
+      const chipset = mb.specs['Chipset'];
+      if (!chipset) return null;
+
+      const tier = chipsetTier(chipset);
+
+      if (cpuPrice >= 350 && tier !== 'high' && tier !== 'other')
+        return makeIssue('warning', this.id, [cpu.name, mb.name],
+          `High-end CPU (${cpu.name}, $${cpuPrice.toFixed(0)}) paired with a ${chipset} (B-series) motherboard — B-series boards have limited power delivery and PCIe lanes for this CPU tier`,
+          'Use an X- or Z-series motherboard to fully support this CPU'
+        );
+
+      if (cpuPrice >= 100 && cpuPrice < 350 && tier === 'high')
+        return makeIssue('warning', this.id, [cpu.name, mb.name],
+          `Mid-range CPU (${cpu.name}, $${cpuPrice.toFixed(0)}) paired with a premium ${chipset} (X/Z-series) motherboard — the board's advanced features (overclocking VRMs, extra PCIe lanes) go unused here`,
+          'A B-series motherboard would be better value for this CPU'
+        );
+
+      return null;
     },
   },
 ];

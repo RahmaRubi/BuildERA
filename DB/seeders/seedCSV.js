@@ -40,18 +40,17 @@ function readJSON(filePath) {
   try { return JSON.parse(readFileSync(filePath, 'utf-8')); } catch { return {}; }
 }
 
-// Products CSV → name: { price, imageUrl, url }
+// Products CSV → url: { price, imageUrl }
 function buildProductLookup(productFile) {
   const rows = readCSV(join(DATA_DIR, 'Products', 'Core', productFile));
   const map  = new Map();
   for (const row of rows) {
-    const name = (row.Name || '').trim();
-    if (!name) continue;
+    const url = (row.URL || '').trim();
+    if (!url) continue;
     const img = row.Image && !row.Image.includes('no-image') ? row.Image : null;
-    map.set(name, {
+    map.set(url, {
       price:    parseFloat(row.Price) || null,
       imageUrl: img,
-      url:      row.URL               || null,
     });
   }
   return map;
@@ -124,12 +123,14 @@ async function seedType({ specFile, type, productFile, dataFile }) {
     const batch         = specRows.slice(i, i + BATCH_SIZE);
     const componentData = [];
     const specData      = [];
+    const urlData       = [];
 
     for (const row of batch) {
-      const name = (row.Name || '').trim();
+      const name    = (row.Name || '').trim();
+      const specUrl = (row.URL  || '').trim();
       if (!name) continue;
 
-      const product  = products.get(name);
+      const product  = products.get(specUrl);
       const price    = product?.price    ?? priceFb.get(name) ?? null;
       const imageUrl = product?.imageUrl ?? imageFb.get(name) ?? null;
 
@@ -142,6 +143,7 @@ async function seedType({ specFile, type, productFile, dataFile }) {
 
       componentData.push({ name, type, brand: extractBrand(row.Manufacturer, name), price, imageUrl });
       specData.push(specs);
+      urlData.push(specUrl);
     }
 
     if (componentData.length === 0) continue;
@@ -171,9 +173,8 @@ async function seedType({ specFile, type, productFile, dataFile }) {
     // URLs (PCPartPicker)
     const urlRecords = [];
     for (let j = 0; j < created.length; j++) {
-      const product = products.get(componentData[j].name);
-      if (product?.url) {
-        urlRecords.push({ component_id: created[j].id, url: product.url, retailer: 'PCPartPicker' });
+      if (urlData[j]) {
+        urlRecords.push({ component_id: created[j].id, url: urlData[j], retailer: 'PCPartPicker' });
       }
     }
     if (urlRecords.length > 0) await db.ComponentUrl.bulkCreate(urlRecords);

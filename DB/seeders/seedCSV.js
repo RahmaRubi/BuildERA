@@ -12,15 +12,17 @@ const BATCH_SIZE    = 100;
 
 const SKIP_COLS = new Set(['Name', 'Manufacturer', 'Part #', 'Model', 'URL']);
 
+// Columns shared between each products CSV and spec CSV used to build a
+// composite key so each spec variant matches its exact product entry.
 const SOURCES = [
-  { specFile: 'Core_CPUs.csv',           type: 'CPU',          productFile: 'CPUs.csv',           dataFile: 'Core_CPUs.json'           },
-  { specFile: 'Core_Motherboards.csv',   type: 'Motherboard',  productFile: 'Motherboards.csv',   dataFile: 'Core_Motherboards.json'   },
-  { specFile: 'Core_Memory.csv',         type: 'Memory',       productFile: 'Memory.csv',         dataFile: 'Core_Memory.json'         },
-  { specFile: 'Core_Video Cards.csv',    type: 'Video Card',   productFile: 'Video Cards.csv',    dataFile: 'Core_Video Cards.json'    },
-  { specFile: 'Core_Cases.csv',          type: 'Case',         productFile: 'Cases.csv',          dataFile: 'Core_Cases.json'          },
-  { specFile: 'Core_Power Supplies.csv', type: 'Power Supply', productFile: 'Power Supplies.csv', dataFile: 'Core_Power Supplies.json' },
-  { specFile: 'Core_CPU Coolers.csv',    type: 'CPU Cooler',   productFile: 'CPU Coolers.csv',    dataFile: 'Core_CPU Coolers.json'    },
-  { specFile: 'Core_Storage.csv',        type: 'Storage',      productFile: 'Storage.csv',        dataFile: 'Core_Storage.json'        },
+  { specFile: 'Core_CPUs.csv',           type: 'CPU',          productFile: 'CPUs.csv',           dataFile: 'Core_CPUs.json',           matchCols: ['Core Count', 'Performance Core Clock', 'Performance Core Boost Clock'] },
+  { specFile: 'Core_Motherboards.csv',   type: 'Motherboard',  productFile: 'Motherboards.csv',   dataFile: 'Core_Motherboards.json',   matchCols: ['Socket / CPU', 'Form Factor', 'Memory Slots'] },
+  { specFile: 'Core_Memory.csv',         type: 'Memory',       productFile: 'Memory.csv',         dataFile: 'Core_Memory.json',         matchCols: ['Speed', 'Modules', 'CAS Latency'] },
+  { specFile: 'Core_Video Cards.csv',    type: 'Video Card',   productFile: 'Video Cards.csv',    dataFile: 'Core_Video Cards.json',    matchCols: ['Chipset', 'Memory', 'Core Clock'] },
+  { specFile: 'Core_Cases.csv',          type: 'Case',         productFile: 'Cases.csv',          dataFile: 'Core_Cases.json',          matchCols: ['Type', 'Color', 'Side Panel'] },
+  { specFile: 'Core_Power Supplies.csv', type: 'Power Supply', productFile: 'Power Supplies.csv', dataFile: 'Core_Power Supplies.json', matchCols: ['Type', 'Wattage', 'Efficiency Rating'] },
+  { specFile: 'Core_CPU Coolers.csv',    type: 'CPU Cooler',   productFile: 'CPU Coolers.csv',    dataFile: 'Core_CPU Coolers.json',    matchCols: ['Fan RPM', 'Noise Level', 'Color'] },
+  { specFile: 'Core_Storage.csv',        type: 'Storage',      productFile: 'Storage.csv',        dataFile: 'Core_Storage.json',        matchCols: ['Form Factor', 'Interface', 'Capacity'] },
 ];
 
 // ── helpers ───────────────────────────────────────────────────────────────────
@@ -40,23 +42,34 @@ function readJSON(filePath) {
   try { return JSON.parse(readFileSync(filePath, 'utf-8')); } catch { return {}; }
 }
 
-// Products CSV → name: best { price, imageUrl, url }
-// "Best" = has both price and image; ties broken by keeping first such entry.
-function buildProductLookup(productFile) {
-  const rows = readCSV(join(DATA_DIR, 'Products', 'Core', productFile));
-  const map  = new Map();
+function compositeKey(name, row, matchCols) {
+  const parts = matchCols.map(col => String(row[col] || '').trim().toLowerCase());
+  return name + '|' + parts.join('|');
+}
+
+// Products CSV → composite key: { price, imageUrl, url }
+// Falls back to name-only key so spec rows with no matching composite still get data.
+function buildProductLookup(productFile, matchCols) {
+  const rows   = readCSV(join(DATA_DIR, 'Products', 'Core', productFile));
+  const byComp = new Map(); // composite key → entry
+  const byName = new Map(); // name → best entry (fallback)
+
   for (const row of rows) {
     const name = (row.Name || '').trim();
     if (!name) continue;
-    const img   = row.Image && !row.Image.includes('no-image') ? row.Image : null;
-    const price = parseFloat(row.Price) || null;
-    const url   = row.URL || null;
-    const existing = map.get(name);
-    const score  = v => (v?.price ? 1 : 0) + (v?.imageUrl ? 1 : 0);
-    const candidate = { price, imageUrl: img, url };
-    if (!existing || score(candidate) > score(existing)) map.set(name, candidate);
+    const img      = row.Image && !row.Image.includes('no-image') ? row.Image : null;
+    const price    = parseFloat(row.Price) || null;
+    const url      = row.URL || null;
+    const entry    = { price, imageUrl: img, url };
+    const score    = v => (v?.price ? 1 : 0) + (v?.imageUrl ? 1 : 0);
+
+    byComp.set(compositeKey(name, row, matchCols), entry);
+
+    const existing = byName.get(name);
+    if (!existing || score(entry) > score(existing)) byName.set(name, entry);
   }
-  return map;
+
+  return { byComp, byName };
 }
 
 // prices JSON → name: most-recent non-null price in dollars
@@ -111,11 +124,11 @@ async function clearAll() {
 
 // ── seed one type ─────────────────────────────────────────────────────────────
 
-async function seedType({ specFile, type, productFile, dataFile }) {
-  const specRows  = readCSV(join(DATA_DIR, 'Core Details', 'specs', specFile));
-  const products  = buildProductLookup(productFile);
-  const priceFb   = buildPriceFallback(dataFile);
-  const imageFb   = buildImageFallback(dataFile);
+async function seedType({ specFile, type, productFile, dataFile, matchCols }) {
+  const specRows          = readCSV(join(DATA_DIR, 'Core Details', 'specs', specFile));
+  const { byComp, byName } = buildProductLookup(productFile, matchCols);
+  const priceFb           = buildPriceFallback(dataFile);
+  const imageFb           = buildImageFallback(dataFile);
 
   const total = specRows.length;
   console.log(`[${type}] ${total} rows`);
@@ -126,12 +139,13 @@ async function seedType({ specFile, type, productFile, dataFile }) {
     const batch         = specRows.slice(i, i + BATCH_SIZE);
     const componentData = [];
     const specData      = [];
+    const productData   = [];
 
     for (const row of batch) {
       const name = (row.Name || '').trim();
       if (!name) continue;
 
-      const product  = products.get(name);
+      const product  = byComp.get(compositeKey(name, row, matchCols)) ?? byName.get(name);
       const price    = product?.price    ?? priceFb.get(name) ?? null;
       const imageUrl = product?.imageUrl ?? imageFb.get(name) ?? null;
 
@@ -144,6 +158,7 @@ async function seedType({ specFile, type, productFile, dataFile }) {
 
       componentData.push({ name, type, brand: extractBrand(row.Manufacturer, name), price, imageUrl });
       specData.push(specs);
+      productData.push(product);
     }
 
     if (componentData.length === 0) continue;
@@ -173,9 +188,8 @@ async function seedType({ specFile, type, productFile, dataFile }) {
     // URLs (PCPartPicker)
     const urlRecords = [];
     for (let j = 0; j < created.length; j++) {
-      const product = products.get(componentData[j].name);
-      if (product?.url) {
-        urlRecords.push({ component_id: created[j].id, url: product.url, retailer: 'PCPartPicker' });
+      if (productData[j]?.url) {
+        urlRecords.push({ component_id: created[j].id, url: productData[j].url, retailer: 'PCPartPicker' });
       }
     }
     if (urlRecords.length > 0) await db.ComponentUrl.bulkCreate(urlRecords);

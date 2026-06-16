@@ -40,18 +40,21 @@ function readJSON(filePath) {
   try { return JSON.parse(readFileSync(filePath, 'utf-8')); } catch { return {}; }
 }
 
-// Products CSV → url: { price, imageUrl }
+// Products CSV → name: best { price, imageUrl, url }
+// "Best" = has both price and image; ties broken by keeping first such entry.
 function buildProductLookup(productFile) {
   const rows = readCSV(join(DATA_DIR, 'Products', 'Core', productFile));
   const map  = new Map();
   for (const row of rows) {
-    const url = (row.URL || '').trim();
-    if (!url) continue;
-    const img = row.Image && !row.Image.includes('no-image') ? row.Image : null;
-    map.set(url, {
-      price:    parseFloat(row.Price) || null,
-      imageUrl: img,
-    });
+    const name = (row.Name || '').trim();
+    if (!name) continue;
+    const img   = row.Image && !row.Image.includes('no-image') ? row.Image : null;
+    const price = parseFloat(row.Price) || null;
+    const url   = row.URL || null;
+    const existing = map.get(name);
+    const score  = v => (v?.price ? 1 : 0) + (v?.imageUrl ? 1 : 0);
+    const candidate = { price, imageUrl: img, url };
+    if (!existing || score(candidate) > score(existing)) map.set(name, candidate);
   }
   return map;
 }
@@ -123,14 +126,12 @@ async function seedType({ specFile, type, productFile, dataFile }) {
     const batch         = specRows.slice(i, i + BATCH_SIZE);
     const componentData = [];
     const specData      = [];
-    const urlData       = [];
 
     for (const row of batch) {
-      const name    = (row.Name || '').trim();
-      const specUrl = (row.URL  || '').trim();
+      const name = (row.Name || '').trim();
       if (!name) continue;
 
-      const product  = products.get(specUrl);
+      const product  = products.get(name);
       const price    = product?.price    ?? priceFb.get(name) ?? null;
       const imageUrl = product?.imageUrl ?? imageFb.get(name) ?? null;
 
@@ -143,7 +144,6 @@ async function seedType({ specFile, type, productFile, dataFile }) {
 
       componentData.push({ name, type, brand: extractBrand(row.Manufacturer, name), price, imageUrl });
       specData.push(specs);
-      urlData.push(specUrl);
     }
 
     if (componentData.length === 0) continue;
@@ -173,8 +173,9 @@ async function seedType({ specFile, type, productFile, dataFile }) {
     // URLs (PCPartPicker)
     const urlRecords = [];
     for (let j = 0; j < created.length; j++) {
-      if (urlData[j]) {
-        urlRecords.push({ component_id: created[j].id, url: urlData[j], retailer: 'PCPartPicker' });
+      const product = products.get(componentData[j].name);
+      if (product?.url) {
+        urlRecords.push({ component_id: created[j].id, url: product.url, retailer: 'PCPartPicker' });
       }
     }
     if (urlRecords.length > 0) await db.ComponentUrl.bulkCreate(urlRecords);

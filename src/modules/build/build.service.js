@@ -75,13 +75,14 @@ export const addComponent = async (req, res, next) => {
   const component = await db.Component.findByPk(componentId);
   if (!component) return next(new Error('Component not found', { cause: 404 }));
 
-  const existing = await db.BuildComponent.findOne({
-    where: { build_id: build.id, component_id: componentId },
-  });
-  if (existing) return next(new Error('Component already in this build', { cause: 400 }));
-
   const MULTI_ALLOWED = ['Memory', 'Storage'];
+
   if (!MULTI_ALLOWED.includes(component.type)) {
+    const existing = await db.BuildComponent.findOne({
+      where: { build_id: build.id, component_id: componentId },
+    });
+    if (existing) return next(new Error('Component already in this build', { cause: 400 }));
+
     const typeConflict = await db.BuildComponent.findOne({
       where: { build_id: build.id },
       include: [{ model: db.Component, where: { type: component.type }, attributes: ['id', 'type'] }],

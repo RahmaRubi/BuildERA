@@ -99,12 +99,12 @@ export const addComponent = async (req, res, next) => {
 
   const compatibility = await checkComponentList(simulated);
 
-  if (compatibility.errors.length > 0) {
-    compatibility.summary.totalComponents = currentComponents.length;
-    const err = new Error(`${component.name} is incompatible with your current build`, { cause: 400 });
-    err.data = compatibility;
-    return next(err);
-  }
+  // if (compatibility.errors.length > 0) {
+  //   compatibility.summary.totalComponents = currentComponents.length;
+  //   const err = new Error(`${component.name} is incompatible with your current build`, { cause: 400 });
+  //   err.data = compatibility;
+  //   return next(err);
+  // }
 
   await db.BuildComponent.create({ build_id: build.id, component_id: componentId });
 
